@@ -117,10 +117,10 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onOpenMatch
           <div className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 pl-2 border-l border-[#333539]">
             <span className="font-mono-stats text-[10px] text-[#c3f400] font-bold mb-0.5">PTS</span>
             <div className="font-mono-stats font-extrabold text-[16px] text-[#c3f400] leading-none">
-              {match.currentGame.teamAPoints}
+              {match.currentGame?.teamAPoints ?? '-'}
             </div>
             <div className="font-mono-stats font-extrabold text-[16px] text-white leading-none">
-              {match.currentGame.teamBPoints}
+              {match.currentGame?.teamBPoints ?? '-'}
             </div>
           </div>
         )}

@@ -36,6 +36,7 @@ import { PairsView } from './components/PairsView';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { RuleEngineTesterModal } from './components/RuleEngineTesterModal';
 import { api } from './api';
+import { createInitialGameScore } from './domain/scoringEngine';
 
 export default function App() {
   // Global Application State
@@ -89,7 +90,13 @@ export default function App() {
         }
         if (pairsData) setPairs(pairsData as Pair[]);
         if (tournamentsData) setTournaments(tournamentsData as Tournament[]);
-        if (matchesData) setMatches(matchesData as Match[]);
+        if (matchesData) {
+          const normalizedMatches = (matchesData as Match[]).map((m) => ({
+            ...m,
+            currentGame: m.currentGame || createInitialGameScore('A'),
+          }));
+          setMatches(normalizedMatches);
+        }
         if (courtsData) setCourts(courtsData as Court[]);
         if (auditLogsData) setAuditLogs(auditLogsData as AuditLog[]);
         if (notificationsData) setNotifications(notificationsData as NotificationItem[]);

@@ -38,6 +38,10 @@ export function awardPoint(
   const match: Match = JSON.parse(JSON.stringify(currentMatch));
   const otherTeam: 'A' | 'B' = team === 'A' ? 'B' : 'A';
 
+  if (!match.currentGame) {
+    match.currentGame = createInitialGameScore('A');
+  }
+
   let currentSet = match.sets[match.currentSetIndex];
   if (!currentSet) {
     currentSet = createInitialSetScore();
@@ -194,7 +198,7 @@ export function formatMatchSnapshot(match: Match): string {
 
   const currentPoints = match.sets[match.currentSetIndex]?.isTieBreak
     ? `TB: ${match.sets[match.currentSetIndex].tieBreakPoints?.teamA}-${match.sets[match.currentSetIndex].tieBreakPoints?.teamB}`
-    : `Pts: ${match.currentGame.teamAPoints}-${match.currentGame.teamBPoints}`;
+    : `Pts: ${match.currentGame?.teamAPoints ?? '-'}-${match.currentGame?.teamBPoints ?? '-'}`;
 
   return `${setsStr} [${currentPoints}]`;
 }

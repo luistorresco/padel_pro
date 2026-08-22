@@ -518,7 +518,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
             <div className="bg-[#0c0e12] rounded-xl p-4 text-center border border-[#333539] flex flex-col items-center justify-center">
               <span className="font-mono-stats text-[11px] text-[#c4c9ac] mb-1">PUNTOS PAREJA A</span>
               <div className="font-display-score text-[64px] leading-none text-[#c3f400]">
-                {match.currentGame.teamAPoints}
+                {match.currentGame?.teamAPoints ?? '-'}
               </div>
 
               {/* Set Games summary for Team A */}
@@ -540,7 +540,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
             <div className="bg-[#0c0e12] rounded-xl p-4 text-center border border-[#333539] flex flex-col items-center justify-center">
               <span className="font-mono-stats text-[11px] text-[#c4c9ac] mb-1">PUNTOS PAREJA B</span>
               <div className="font-display-score text-[64px] leading-none text-white">
-                {match.currentGame.teamBPoints}
+                {match.currentGame?.teamBPoints ?? '-'}
               </div>
 
               {/* Set Games summary for Team B */}
