@@ -1,0 +1,6 @@
+{
+  "name": "Padel Pro - Torneos & Gestos",
+  "description": "Gestión profesional de torneos de pádel, partidos en vivo, estadísticas acumuladas y marcador inteligente controlado por gestos de cámara.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
