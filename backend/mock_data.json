@@ -623,8 +623,8 @@
     }
   ],
   "gesture_configuration": {
-    "point_team_a_gesture": "OPEN_PALM",
-    "point_team_b_gesture": "FIST",
+    "point_team_a_gesture": "THREE_FINGERS",
+    "point_team_b_gesture": "OK_GESTURE",
     "undo_gesture": "THUMB_DOWN",
     "pause_timer_gesture": "HORIZONTAL_PALM",
     "resume_timer_gesture": "THUMB_UP",
