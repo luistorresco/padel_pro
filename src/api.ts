@@ -1,5 +1,4 @@
-const API_BASE_NORMALIZED = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_NORMALIZED || 'http://localhost:8000';
-const API_BASE_NORMALIZED_NORMALIZED = API_BASE_NORMALIZED.replace(/\/+$/, '');
+const API_BASE_NORMALIZED = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_NORMALIZED || '/api').replace(/\/+$/, '');
 
 export { API_BASE_NORMALIZED };
 
