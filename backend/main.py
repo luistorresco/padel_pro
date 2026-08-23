@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
@@ -9,6 +9,7 @@ from database import init_db, engine
 from sqlalchemy import text
 from jose import JWTError, jwt
 import bcrypt
+from fastapi import Body
 
 app = FastAPI(
     title="Padel Pro API",
@@ -74,7 +75,7 @@ def api_info():
 # ==================== AUTH ====================
 
 @app.post("/api/auth/register")
-def register(body: dict):
+def register(body: dict = Body(...)):
     email = body.get("email")
     password = body.get("password")
     name = body.get("name")
@@ -139,7 +140,7 @@ def register(body: dict):
 
 
 @app.post("/api/auth/login")
-def login(body: dict):
+def login(body: dict = Body(...)):
     email = body.get("email")
     password = body.get("password")
 
