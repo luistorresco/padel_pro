@@ -626,8 +626,6 @@
     "point_team_a_gesture": "ROCK",
     "point_team_b_gesture": "CALL",
     "undo_gesture": "THUMB_DOWN",
-    "pause_timer_gesture": "HORIZONTAL_PALM",
-    "resume_timer_gesture": "THUMB_UP",
     "cooldown_ms": 500,
     "min_confidence": 0.8,
     "required_hold_frames": 15,

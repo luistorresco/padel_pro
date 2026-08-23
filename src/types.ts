@@ -216,8 +216,6 @@ export interface GestureConfiguration {
   pointTeamAGesture: string; // e.g., 'ROCK'
   pointTeamBGesture: string; // e.g., 'CALL'
   undoGesture: string; // e.g., 'THUMB_DOWN'
-  pauseTimerGesture: string; // e.g., 'HORIZONTAL_PALM'
-  resumeTimerGesture: string; // e.g., 'THUMB_UP'
   cooldownMs: number;
   minConfidence: number;
   requiredHoldFrames: number;
@@ -231,7 +229,7 @@ export interface GestureConfiguration {
   mode: 'ONE_HAND' | 'TWO_HANDS';
 }
 
-export type GestureType = 'POINT_TEAM_A' | 'POINT_TEAM_B' | 'UNDO' | 'PAUSE_TIMER' | 'RESUME_TIMER' | 'NONE';
+export type GestureType = 'POINT_TEAM_A' | 'POINT_TEAM_B' | 'UNDO' | 'NONE';
 
 export interface RecognizedGestureState {
   gesture: GestureType;

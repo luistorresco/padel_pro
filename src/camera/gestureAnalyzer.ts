@@ -4,8 +4,6 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfiguration = {
   pointTeamAGesture: 'ROCK',
   pointTeamBGesture: 'CALL',
   undoGesture: 'THUMB_DOWN',
-  pauseTimerGesture: 'PEACE_SIGN',
-  resumeTimerGesture: 'THUMB_UP',
   cooldownMs: 1500,
   minConfidence: 0.70,
   requiredHoldFrames: 10,
@@ -193,8 +191,6 @@ export class GestureRecognizerEngine {
     if (classified === this.config.pointTeamAGesture) return 'POINT_TEAM_A';
     if (classified === this.config.pointTeamBGesture) return 'POINT_TEAM_B';
     if (classified === this.config.undoGesture) return 'UNDO';
-    if (classified === this.config.pauseTimerGesture) return 'PAUSE_TIMER';
-    if (classified === this.config.resumeTimerGesture) return 'RESUME_TIMER';
     return 'NONE';
   }
 }
@@ -237,9 +233,7 @@ export function classifyGestureFromLandmarks(landmarks: Array<{ x: number; y: nu
 
   // Check Thumb direction when fingers are folded (closed fist or thumb gesture)
   if (openFingersCount === 0) {
-    const isThumbUp = thumbTip.y < indexMcp.y - 0.04 && thumbTip.y < wrist.y - 0.04;
     const isThumbDown = thumbTip.y > wrist.y + 0.05;
-    if (isThumbUp) return 'THUMB_UP';
     if (isThumbDown) return 'THUMB_DOWN';
     return 'CLOSED_FIST';
   }
@@ -260,11 +254,6 @@ export function classifyGestureFromLandmarks(landmarks: Array<{ x: number; y: nu
     return 'CALL';
   }
 
-  // Peace / Victory Sign (Index & Middle extended, Ring & Pinky folded)
-  if (isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-    return 'PEACE_SIGN';
-  }
-
   // Open Palm (All 4 fingers extended)
   if (isIndexExtended && isMiddleExtended && isRingExtended && isPinkyExtended) {
     return 'OPEN_PALM';
@@ -283,8 +272,6 @@ export function getGestureLabel(gesture: GestureType): string {
     case 'POINT_TEAM_A': return 'PUNTO PAREJA A (🤘 Rock)';
     case 'POINT_TEAM_B': return 'PUNTO PAREJA B (📞 Llamar)';
     case 'UNDO': return 'DESHACER PUNTO (👎 Pulgar Abajo)';
-    case 'PAUSE_TIMER': return 'PAUSAR CRONÓMETRO (✌️ 2 Dedos)';
-    case 'RESUME_TIMER': return 'REANUDAR CRONÓMETRO (👍 Pulgar Arriba)';
     default: return 'NINGUNO';
   }
 }

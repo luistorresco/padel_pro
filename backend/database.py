@@ -161,8 +161,6 @@ def create_schema(conn):
             point_team_a_gesture TEXT NOT NULL,
             point_team_b_gesture TEXT NOT NULL,
             undo_gesture TEXT NOT NULL,
-            pause_timer_gesture TEXT NOT NULL,
-            resume_timer_gesture TEXT NOT NULL,
             cooldown_ms INTEGER NOT NULL,
             min_confidence REAL NOT NULL,
             required_hold_frames INTEGER NOT NULL,
@@ -334,17 +332,15 @@ def seed_data(conn, data):
     gc = data["gesture_configuration"]
     conn.execute(text("""
         INSERT INTO gesture_config (id, point_team_a_gesture, point_team_b_gesture,
-            undo_gesture, pause_timer_gesture, resume_timer_gesture, cooldown_ms,
+            undo_gesture, cooldown_ms,
             min_confidence, required_hold_frames, detection_zone, mode)
         VALUES (1, :point_team_a_gesture, :point_team_b_gesture, :undo_gesture,
-            :pause_timer_gesture, :resume_timer_gesture, :cooldown_ms,
+            :cooldown_ms,
             :min_confidence, :required_hold_frames, :detection_zone, :mode)
         ON CONFLICT (id) DO UPDATE SET
             point_team_a_gesture = EXCLUDED.point_team_a_gesture,
             point_team_b_gesture = EXCLUDED.point_team_b_gesture,
             undo_gesture = EXCLUDED.undo_gesture,
-            pause_timer_gesture = EXCLUDED.pause_timer_gesture,
-            resume_timer_gesture = EXCLUDED.resume_timer_gesture,
             cooldown_ms = EXCLUDED.cooldown_ms,
             min_confidence = EXCLUDED.min_confidence,
             required_hold_frames = EXCLUDED.required_hold_frames,
@@ -354,8 +350,6 @@ def seed_data(conn, data):
         "point_team_a_gesture": gc["point_team_a_gesture"],
         "point_team_b_gesture": gc["point_team_b_gesture"],
         "undo_gesture": gc["undo_gesture"],
-        "pause_timer_gesture": gc["pause_timer_gesture"],
-        "resume_timer_gesture": gc["resume_timer_gesture"],
         "cooldown_ms": gc["cooldown_ms"],
         "min_confidence": gc["min_confidence"],
         "required_hold_frames": gc["required_hold_frames"],

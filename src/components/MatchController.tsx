@@ -263,12 +263,6 @@ export const MatchController: React.FC<MatchControllerProps> = ({
       case 'UNDO':
         handleUndoLastPoint();
         break;
-      case 'PAUSE_TIMER':
-        handlePauseTimer();
-        break;
-      case 'RESUME_TIMER':
-        handleResumeTimer();
-        break;
       default:
         break;
     }
@@ -767,7 +761,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
               </div>
 
               {/* Gesture Guide Cheat Sheet */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px] font-mono-stats text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] font-mono-stats text-center">
                 <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center">
                   <span className="text-[16px]">🤘</span>
                   <span className="text-[#c3f400] font-bold">Rock</span>
@@ -777,16 +771,6 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                   <span className="text-[16px]">📞</span>
                   <span className="text-white font-bold">Llamar</span>
                   <span className="text-[#8e9379] text-[9px]">Punto Pareja B</span>
-                </div>
-                <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center">
-                  <span className="text-[16px]">✌️</span>
-                  <span className="text-cyan-400 font-bold">2 Dedos / Victoria</span>
-                  <span className="text-[#8e9379] text-[9px]">Pausar Cronómetro</span>
-                </div>
-                <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center">
-                  <span className="text-[16px]">👍</span>
-                  <span className="text-[#c3f400] font-bold">Pulgar Arriba</span>
-                  <span className="text-[#8e9379] text-[9px]">Reanudar Cronómetro</span>
                 </div>
                 <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center col-span-2 sm:col-span-1">
                   <span className="text-[16px]">👎</span>
@@ -801,7 +785,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                   ⚡ DISPARADOR RÁPIDO DE GESTOS (PRUEBA MANUAL):
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
                     onClick={() => {
                       const res = gestureEngineRef.current.triggerDirectAction('POINT_TEAM_A');
@@ -828,35 +812,11 @@ export const MatchController: React.FC<MatchControllerProps> = ({
 
                   <button
                     onClick={() => {
-                      const res = gestureEngineRef.current.triggerDirectAction('PAUSE_TIMER');
-                      setRecognizedState(res);
-                      executeGestureAction('PAUSE_TIMER');
-                    }}
-                    className="bg-[#333539] hover:bg-[#37393d] text-cyan-400 text-[11px] font-mono-stats py-2 px-1.5 rounded-lg border border-cyan-400/30 flex flex-col items-center gap-1"
-                  >
-                    <span className="text-[18px]">✌️</span>
-                    <span>✌️ Pausar</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const res = gestureEngineRef.current.triggerDirectAction('RESUME_TIMER');
-                      setRecognizedState(res);
-                      executeGestureAction('RESUME_TIMER');
-                    }}
-                    className="bg-[#333539] hover:bg-[#37393d] text-[#c3f400] text-[11px] font-mono-stats py-2 px-1.5 rounded-lg border border-[#c3f400]/30 flex flex-col items-center gap-1"
-                  >
-                    <span className="text-[18px]">👍</span>
-                    <span>👍 Reanudar</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
                       const res = gestureEngineRef.current.triggerDirectAction('UNDO');
                       setRecognizedState(res);
                       executeGestureAction('UNDO');
                     }}
-                    className="bg-[#333539] hover:bg-[#37393d] text-[#ffdad6] text-[11px] font-mono-stats py-2 px-1.5 rounded-lg border border-[#ffb4ab]/30 flex flex-col items-center gap-1 col-span-2 sm:col-span-1"
+                    className="bg-[#333539] hover:bg-[#37393d] text-[#ffdad6] text-[11px] font-mono-stats py-2 px-1.5 rounded-lg border border-[#ffb4ab]/30 flex flex-col items-center gap-1"
                   >
                     <span className="text-[18px]">👎</span>
                     <span>👎 Deshacer</span>
