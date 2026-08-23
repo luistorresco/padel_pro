@@ -769,13 +769,13 @@ export const MatchController: React.FC<MatchControllerProps> = ({
               {/* Gesture Guide Cheat Sheet */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px] font-mono-stats text-center">
                 <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center">
-                  <span className="text-[16px]">3️⃣</span>
-                  <span className="text-[#c3f400] font-bold">3 Dedos</span>
+                  <span className="text-[16px]">🤘</span>
+                  <span className="text-[#c3f400] font-bold">Rock</span>
                   <span className="text-[#8e9379] text-[9px]">Punto Pareja A</span>
                 </div>
                 <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center">
-                  <span className="text-[16px]">👌</span>
-                  <span className="text-white font-bold">OK</span>
+                  <span className="text-[16px]">📞</span>
+                  <span className="text-white font-bold">Llamar</span>
                   <span className="text-[#8e9379] text-[9px]">Punto Pareja B</span>
                 </div>
                 <div className="bg-[#1b1e23] p-1.5 rounded border border-[#333539] flex flex-col items-center">
@@ -810,8 +810,8 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                     }}
                     className="bg-[#333539] hover:bg-[#37393d] text-[#c3f400] text-[11px] font-mono-stats py-2 px-1.5 rounded-lg border border-[#c3f400]/40 flex flex-col items-center gap-1"
                   >
-                    <span className="text-[18px]">3️⃣</span>
-                    <span>3️⃣ Punto A</span>
+                    <span className="text-[18px]">🤘</span>
+                    <span>🤘 Punto A</span>
                   </button>
 
                   <button
@@ -822,8 +822,8 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                     }}
                     className="bg-[#333539] hover:bg-[#37393d] text-white text-[11px] font-mono-stats py-2 px-1.5 rounded-lg border border-white/20 flex flex-col items-center gap-1"
                   >
-                    <span className="text-[18px]">👌</span>
-                    <span>👌 Punto B</span>
+                    <span className="text-[18px]">📞</span>
+                    <span>📞 Punto B</span>
                   </button>
 
                   <button

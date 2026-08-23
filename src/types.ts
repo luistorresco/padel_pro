@@ -213,8 +213,8 @@ export interface MatchEvent {
 }
 
 export interface GestureConfiguration {
-  pointTeamAGesture: string; // e.g., 'THREE_FINGERS'
-  pointTeamBGesture: string; // e.g., 'OK_GESTURE'
+  pointTeamAGesture: string; // e.g., 'ROCK'
+  pointTeamBGesture: string; // e.g., 'CALL'
   undoGesture: string; // e.g., 'THUMB_DOWN'
   pauseTimerGesture: string; // e.g., 'HORIZONTAL_PALM'
   resumeTimerGesture: string; // e.g., 'THUMB_UP'

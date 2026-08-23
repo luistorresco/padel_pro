@@ -1,8 +1,8 @@
 import { GestureConfiguration, GestureType, RecognizedGestureState } from '../types';
 
 export const DEFAULT_GESTURE_CONFIG: GestureConfiguration = {
-  pointTeamAGesture: 'THREE_FINGERS',
-  pointTeamBGesture: 'OK_GESTURE',
+  pointTeamAGesture: 'ROCK',
+  pointTeamBGesture: 'CALL',
   undoGesture: 'THUMB_DOWN',
   pauseTimerGesture: 'PEACE_SIGN',
   resumeTimerGesture: 'THUMB_UP',
@@ -249,6 +249,17 @@ export function classifyGestureFromLandmarks(landmarks: Array<{ x: number; y: nu
   const isOk = dist(thumbTip, indexTip) < okThreshold && isMiddleExtended && isRingExtended && isPinkyExtended;
   if (isOk) return 'OK_GESTURE';
 
+  // Rock (Cuernos): Index & Pinky extended, Middle & Ring folded
+  if (isIndexExtended && !isMiddleExtended && !isRingExtended && isPinkyExtended) {
+    return 'ROCK';
+  }
+
+  // Call / Llamar: Thumb & Pinky extended, Index/Middle/Ring folded
+  const isThumbExtendedForCall = thumbTip.y < wrist.y - 0.03;
+  if (isThumbExtendedForCall && !isIndexExtended && !isMiddleExtended && !isRingExtended && isPinkyExtended) {
+    return 'CALL';
+  }
+
   // Peace / Victory Sign (Index & Middle extended, Ring & Pinky folded)
   if (isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended) {
     return 'PEACE_SIGN';
@@ -269,8 +280,8 @@ export function classifyGestureFromLandmarks(landmarks: Array<{ x: number; y: nu
 
 export function getGestureLabel(gesture: GestureType): string {
   switch (gesture) {
-    case 'POINT_TEAM_A': return 'PUNTO PAREJA A (3 Dedos)';
-    case 'POINT_TEAM_B': return 'PUNTO PAREJA B (👌 OK)';
+    case 'POINT_TEAM_A': return 'PUNTO PAREJA A (🤘 Rock)';
+    case 'POINT_TEAM_B': return 'PUNTO PAREJA B (📞 Llamar)';
     case 'UNDO': return 'DESHACER PUNTO (👎 Pulgar Abajo)';
     case 'PAUSE_TIMER': return 'PAUSAR CRONÓMETRO (✌️ 2 Dedos)';
     case 'RESUME_TIMER': return 'REANUDAR CRONÓMETRO (👍 Pulgar Arriba)';
