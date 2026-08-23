@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Header, Body
+from fastapi import FastAPI, HTTPException, Header, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
@@ -9,7 +9,6 @@ from database import init_db, engine
 from sqlalchemy import text
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Body
 
 app = FastAPI(
     title="Padel Pro API",
@@ -185,6 +184,22 @@ def auth_me(authorization: Optional[str] = Header(None)):
             user["stats"] = json.loads(user["stats"])
         return user
 
+
+def get_current_user(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    token = authorization.replace("Bearer ", "")
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return payload
+
+
+def require_admin(payload: dict = Depends(get_current_user)):
+    if payload.get("role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return payload
+
 # ==================== USERS ====================
 
 @app.get("/api/users")
@@ -217,7 +232,7 @@ def get_user(user_id: str):
         return user
 
 @app.post("/api/users")
-def create_user(user: dict):
+def create_user(user: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO users (id, name, surname, username, email, role, avatar, level,
@@ -243,7 +258,7 @@ def create_user(user: dict):
     return user
 
 @app.put("/api/users/{user_id}")
-def update_user(user_id: str, user: dict):
+def update_user(user_id: str, user: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
         if not result.mappings().first():
@@ -268,7 +283,7 @@ def update_user(user_id: str, user: dict):
     return {**user, "id": user_id}
 
 @app.delete("/api/users/{user_id}")
-def delete_user(user_id: str):
+def delete_user(user_id: str, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
         if not result.mappings().first():
@@ -295,7 +310,7 @@ def get_pair(pair_id: str):
         return dict(row)
 
 @app.post("/api/pairs")
-def create_pair(pair: dict):
+def create_pair(pair: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO pairs (id, name, player1_id, player2_id, player1_name, player2_name,
@@ -319,7 +334,7 @@ def create_pair(pair: dict):
     return pair
 
 @app.delete("/api/pairs/{pair_id}")
-def delete_pair(pair_id: str):
+def delete_pair(pair_id: str, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_id})
         if not result.mappings().first():
@@ -362,7 +377,7 @@ def get_tournament(tournament_id: str):
         return t
 
 @app.post("/api/tournaments")
-def create_tournament(tournament: dict):
+def create_tournament(tournament: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO tournaments (id, name, logo, description, category, level, location,
@@ -389,7 +404,7 @@ def create_tournament(tournament: dict):
     return tournament
 
 @app.delete("/api/tournaments/{tournament_id}")
-def delete_tournament(tournament_id: str):
+def delete_tournament(tournament_id: str, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM tournaments WHERE id = :id"), {"id": tournament_id})
         if not result.mappings().first():
@@ -399,7 +414,7 @@ def delete_tournament(tournament_id: str):
     return {"message": "Tournament deleted"}
 
 @app.post("/api/tournaments/{tournament_id}/register")
-def register_pair(tournament_id: str, body: dict):
+def register_pair(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
     pair_id = body.get("pair_id")
     with engine.begin() as conn:
         result = conn.execute(text("SELECT registered_pair_ids FROM tournaments WHERE id = :id"), {"id": tournament_id})
@@ -432,7 +447,7 @@ def get_court(court_id: str):
         return dict(row)
 
 @app.put("/api/courts/{court_id}")
-def update_court(court_id: str, court: dict):
+def update_court(court_id: str, court: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM courts WHERE id = :id"), {"id": court_id})
         if not result.mappings().first():
@@ -479,7 +494,7 @@ def get_match(match_id: str):
         return m
 
 @app.put("/api/matches/{match_id}")
-def update_match(match_id: str, match: dict):
+def update_match(match_id: str, match: dict, payload: dict = Depends(get_current_user)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
         if not result.mappings().first():
@@ -523,7 +538,7 @@ def update_match(match_id: str, match: dict):
     return {**match, "id": match_id}
 
 @app.put("/api/matches/{match_id}/court")
-def update_match_court(match_id: str, body: dict):
+def update_match_court(match_id: str, body: dict, payload: dict = Depends(require_admin)):
     court_id = body.get("court_id")
     court_name = body.get("court_name")
     with engine.begin() as conn:
@@ -537,14 +552,14 @@ def update_match_court(match_id: str, body: dict):
 # ==================== AUDIT LOGS ====================
 
 @app.get("/api/audit-logs")
-def get_audit_logs():
+def get_audit_logs(payload: dict = Depends(require_admin)):
     with engine.connect() as conn:
         result = conn.execute(text("SELECT * FROM audit_logs ORDER BY timestamp DESC"))
         logs = [dict(row) for row in result.mappings()]
         return logs
 
 @app.post("/api/audit-logs")
-def create_audit_log(log: dict):
+def create_audit_log(log: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO audit_logs (id, admin_name, admin_email, action, target, details, timestamp)
@@ -563,14 +578,14 @@ def create_audit_log(log: dict):
 # ==================== NOTIFICATIONS ====================
 
 @app.get("/api/notifications")
-def get_notifications():
+def get_notifications(payload: dict = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(text("SELECT * FROM notifications ORDER BY timestamp DESC"))
         notifs = [dict(row) for row in result.mappings()]
         return notifs
 
 @app.post("/api/notifications")
-def create_notification(notification: dict):
+def create_notification(notification: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO notifications (id, title, body, timestamp, read, type, link_id)
@@ -629,7 +644,7 @@ def get_stats():
 # ==================== DB DIRECT QUERIES ====================
 
 @app.get("/api/db/users")
-def db_get_users():
+def db_get_users(payload: dict = Depends(require_admin)):
     with engine.connect() as conn:
         result = conn.execute(text("SELECT * FROM users ORDER BY points DESC"))
         users = []
@@ -641,7 +656,7 @@ def db_get_users():
         return users
 
 @app.get("/api/db/matches")
-def db_get_matches():
+def db_get_matches(payload: dict = Depends(require_admin)):
     with engine.connect() as conn:
         result = conn.execute(text("SELECT * FROM matches ORDER BY date_time"))
         matches = []

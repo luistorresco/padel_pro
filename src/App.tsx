@@ -36,7 +36,7 @@ import { PairsView } from './components/PairsView';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { RuleEngineTesterModal } from './components/RuleEngineTesterModal';
 import { LoginScreen } from './components/LoginScreen';
-import { api, API_BASE_NORMALIZED } from './api';
+import { api, API_BASE_NORMALIZED, setAuthToken } from './api';
 import { createInitialGameScore } from './domain/scoringEngine';
 
 export default function App() {
@@ -75,6 +75,7 @@ export default function App() {
 
         if (token) {
           try {
+            setAuthToken(token);
             currentUser = await api.authMe(token);
             if (!cancelled && currentUser) {
               setSession({ user: currentUser, token });
@@ -82,6 +83,7 @@ export default function App() {
               setRole(currentUser.role);
             }
           } catch {
+            setAuthToken(null);
             sessionStorage.removeItem('padel_pro_token');
           }
         }
@@ -151,6 +153,7 @@ export default function App() {
   const handleLogin = (userData: any, token: string) => {
     const typedUser = userData as User;
     sessionStorage.setItem('padel_pro_token', token);
+    setAuthToken(token);
     setSession({ user: typedUser, token });
     setUser(typedUser);
     setRole(typedUser.role);
@@ -158,6 +161,7 @@ export default function App() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('padel_pro_token');
+    setAuthToken(null);
     setSession(null);
     setUser(INITIAL_USER);
     setRole('ADMIN');
