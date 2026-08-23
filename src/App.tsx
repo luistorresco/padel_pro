@@ -564,23 +564,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#111317] text-[#e2e2e7] font-sans antialiased relative selection:bg-[#c3f400] selection:text-[#161e00]">
-      {/* Fixed Top Bar */}
-      <HeaderBar
-        role={role}
-        onToggleRole={handleToggleRole}
-        notifications={notifications}
-        onOpenNotifications={() => setShowNotificationsDrawer(true)}
-        onOpenProfile={() => {
-          setSelectedPlayer(user);
-          setActiveTab('profile');
-        }}
-        onOpenMenu={() => setShowMenuDrawer(true)}
-        activeLiveMatchCount={liveCount}
-      />
-
-      {/* Main View Router Content Area */}
       {loading && (
-        <div className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)] flex items-center justify-center">
+        <div className="flex items-center justify-center min-h-screen">
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-2 border-[#c3f400] border-t-transparent rounded-full animate-spin" />
             <p className="font-mono-stats text-[12px] text-[#c4c9ac]">Conectando con el servidor...</p>
@@ -592,375 +577,392 @@ export default function App() {
         <LoginScreen onLogin={handleLogin} apiBase={API_BASE_NORMALIZED} />
       )}
 
-      {!loading && session && (
-        <main className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)]">
-          {usingFallback && (
-            <div className="px-4 pt-3">
-              <div className="bg-[#282a2e] border border-[#c3f400]/40 text-[#c3f400] text-[11px] font-mono-stats p-2.5 rounded-lg">
-                Backend no disponible. Mostrando datos locales.
+      {session && (
+        <>
+          {/* Fixed Top Bar */}
+          <HeaderBar
+            role={role}
+            onToggleRole={handleToggleRole}
+            notifications={notifications}
+            onOpenNotifications={() => setShowNotificationsDrawer(true)}
+            onOpenProfile={() => {
+              setSelectedPlayer(user);
+              setActiveTab('profile');
+            }}
+            onOpenMenu={() => setShowMenuDrawer(true)}
+            activeLiveMatchCount={liveCount}
+          />
+
+          {/* Main View Router Content Area */}
+          <main className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)]">
+            {usingFallback && (
+              <div className="px-4 pt-3">
+                <div className="bg-[#282a2e] border border-[#c3f400]/40 text-[#c3f400] text-[11px] font-mono-stats p-2.5 rounded-lg">
+                  Backend no disponible. Mostrando datos locales.
+                </div>
+              </div>
+            )}
+
+            <>
+              {/* HOME DASHBOARD VIEW */}
+              {activeTab === 'home' && (
+                <div className="flex flex-col gap-6 px-4 pt-3 w-full">
+                  {/* Live Now Section */}
+                  <section className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-[#FF3B30] pulse-animation" />
+                        <h2 className="font-headline font-bold text-[18px] text-white tracking-wide uppercase">
+                          Live Now
+                        </h2>
+                      </div>
+                      <span className="font-mono-stats text-[11px] text-[#c4c9ac]">
+                        Padel Pro Arena
+                      </span>
+                    </div>
+
+                    {/* Active Match Scorecard */}
+                    {activeLiveMatch && (
+                      <LiveMatchCard
+                        match={activeLiveMatch}
+                        onOpenMatch={(id) => setSelectedMatchId(id)}
+                      />
+                    )}
+                  </section>
+
+                  {/* Quick Actions Bento Grid */}
+                  <section className="grid grid-cols-2 gap-3">
+                    {/* Primary Bento Action */}
+                    <button
+                      onClick={() => setSelectedMatchId(activeLiveMatch.id)}
+                      className="col-span-2 bg-[#c3f400] text-[#161e00] rounded-xl p-4 flex items-center justify-between transition-transform active:scale-[0.98] shadow-lg border border-[#c3f400]/40 group"
+                    >
+                      <div className="flex flex-col items-start text-left">
+                        <span className="font-headline font-extrabold text-[18px] leading-tight">
+                          Iniciar Partido & Control por Gestos
+                        </span>
+                        <span className="font-mono-stats text-[11px] opacity-80 mt-1">
+                          Marcador inteligente con cámara
+                        </span>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-[#161e00]/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          play_arrow
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Secondary Bento Actions */}
+                    <button
+                      onClick={() => setActiveTab('tourneys')}
+                      className="bg-[#1e2023] rounded-xl p-4 flex flex-col items-start gap-3 border border-[#333539] hover:border-[#c3f400]/40 hover:bg-[#282a2e] transition-all active:scale-95 text-left shadow-md"
+                    >
+                      <span className="material-symbols-outlined text-[#c3f400] text-[28px]">search</span>
+                      <span className="font-headline font-bold text-[15px] leading-tight text-white">
+                        Buscar<br />Torneo
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedPlayer(user);
+                        setActiveTab('profile');
+                      }}
+                      className="bg-[#1e2023] rounded-xl p-4 flex flex-col items-start gap-3 border border-[#333539] hover:border-[#c3f400]/40 hover:bg-[#282a2e] transition-all active:scale-95 text-left shadow-md"
+                    >
+                      <span className="material-symbols-outlined text-[#c3f400] text-[28px]">bar_chart</span>
+                      <span className="font-headline font-bold text-[15px] leading-tight text-white">
+                        Mis<br />Estadísticas
+                      </span>
+                    </button>
+                  </section>
+
+                  {/* My Next Match Card */}
+                  <section className="flex flex-col gap-3">
+                    <h2 className="font-headline font-bold text-[16px] text-[#c4c9ac] uppercase tracking-wider pl-1">
+                      Mi Próximo Partido
+                    </h2>
+
+                    <div
+                      onClick={() => setSelectedMatchId('match_upcoming_02')}
+                      className="bg-[#1e2023] rounded-xl p-4 flex items-center gap-4 border border-[#333539] relative overflow-hidden group hover:border-[#c3f400]/50 transition-all cursor-pointer shadow-lg"
+                    >
+                      {/* Calendar Date Block */}
+                      <div className="w-14 h-14 rounded-xl bg-[#0c0e12] flex flex-col items-center justify-center border border-[#333539] flex-shrink-0">
+                        <span className="font-mono-stats text-[10px] text-[#FF3B30] uppercase font-bold tracking-widest">
+                          OCT
+                        </span>
+                        <span className="font-headline font-black text-[22px] leading-none text-white mt-0.5">
+                          24
+                        </span>
+                      </div>
+
+                      {/* Match Info */}
+                      <div className="flex flex-col flex-1 gap-1 min-w-0">
+                        <div className="flex items-center gap-1.5 text-[#c3f400]">
+                          <span className="material-symbols-outlined text-[14px]">schedule</span>
+                          <span className="font-mono-stats text-[12px] font-bold">18:30 - 20:00</span>
+                        </div>
+                        <div className="font-headline font-bold text-[15px] text-white truncate">
+                          Cuartos de Final - Pro League
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[#c4c9ac] text-[12px] font-mono-stats">
+                          <span className="material-symbols-outlined text-[14px]">location_on</span>
+                          <span className="truncate">Pista 2 • Club Central</span>
+                        </div>
+                      </div>
+
+                      {/* Partner Avatar */}
+                      <div className="flex flex-col items-center justify-center flex-shrink-0 gap-1 pl-2 border-l border-[#333539]">
+                        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#c3f400]/60">
+                          <img
+                            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
+                            alt="Partner"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="font-mono-stats text-[9px] text-[#c4c9ac]">Pareja</span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              )}
+
+              {/* TOURNAMENTS VIEW */}
+              {activeTab === 'tourneys' && (
+                <TournamentsView
+                  tournaments={tournaments}
+                  pairs={pairs}
+                  matches={matches}
+                  role={role}
+                  onCreateTournament={handleCreateTournament}
+                  onRegisterPair={handleRegisterPair}
+                  onDeleteTournament={handleDeleteTournament}
+                  onOpenMatch={(id) => {
+                    setSelectedMatchId(id);
+                    setActiveTab('matches');
+                  }}
+                />
+              )}
+
+              {/* MATCHES VIEW */}
+              {activeTab === 'matches' && (
+                <div className="flex flex-col gap-4 pb-24 px-4 pt-3 w-full">
+                  <div className="border-b border-[#333539] pb-3">
+                    <h2 className="font-headline font-black text-[22px] text-white tracking-tight flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#c3f400] text-[28px]">sports_tennis</span>
+                      Partidos & Marcador en Vivo
+                    </h2>
+                    <p className="text-[12px] text-[#c4c9ac] font-mono-stats">
+                      Selecciona un partido para abrir la mesa de control o activar gestos de cámara
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    {matches.map((m) => (
+                      <LiveMatchCard
+                        key={m.id}
+                        match={m}
+                        onOpenMatch={(id) => setSelectedMatchId(id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* RANKING VIEW */}
+              {activeTab === 'ranking' && (
+                <RankingsView
+                  players={players}
+                  onSelectPlayer={(p) => {
+                    setSelectedPlayer(p);
+                    setActiveTab('profile');
+                  }}
+                />
+              )}
+
+              {/* PAIRS VIEW */}
+              {activeTab === 'pairs' && (
+                <PairsView
+                  pairs={pairs}
+                  players={players}
+                  role={role}
+                  onCreatePair={handleCreatePair}
+                  onDissolvePair={handleDeletePair}
+                />
+              )}
+
+              {/* PROFILE VIEW */}
+              {activeTab === 'profile' && (
+                <PlayerProfileView
+                  player={selectedPlayer || user}
+                  onUpdateProfile={async (updated) => {
+                    setUser(updated);
+                    setPlayers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+                    await api.updateUser(updated.id, updated as unknown as Record<string, unknown>);
+                  }}
+                />
+              )}
+
+              {/* ADMIN DASHBOARD VIEW */}
+              {activeTab === 'admin' && (
+                <AdminDashboardView
+                  players={players}
+                  tournaments={tournaments}
+                  matches={matches}
+                  courts={courts}
+                  auditLogs={auditLogs}
+                  onUpdateMatchCourt={handleUpdateMatchCourt}
+                  onRunUnitTests={() => setShowUnitTestModal(true)}
+                  onCreateUser={handleCreateUser}
+                  onDeleteUser={handleDeleteUser}
+                />
+              )}
+            </>
+          </main>
+
+          {/* FULLSCREEN MATCH CONTROLLER & CAMERA GESTURES OVERLAY */}
+          {selectedMatchId && (
+            <MatchController
+              match={matches.find((m) => m.id === selectedMatchId) || matches[0]}
+              onUpdateMatch={handleUpdateMatch}
+              onClose={() => setSelectedMatchId(null)}
+            />
+          )}
+
+          {/* UNIT TEST INSPECTOR MODAL */}
+          {showUnitTestModal && (
+            <RuleEngineTesterModal onClose={() => setShowUnitTestModal(false)} />
+          )}
+
+          {/* NOTIFICATIONS DRAWER */}
+          {showNotificationsDrawer && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end">
+              <div className="bg-[#1e2023] w-full max-w-sm h-full p-4 border-l border-[#333539] flex flex-col gap-4 shadow-2xl overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-[#333539] pb-3">
+                  <h3 className="font-headline font-bold text-[18px] text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#c3f400]">notifications</span>
+                    Notificaciones (FCM)
+                  </h3>
+                  <button
+                    onClick={() => setShowNotificationsDrawer(false)}
+                    className="text-[#c4c9ac] hover:text-white"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className="bg-[#282a2e] p-3 rounded-xl border border-[#333539] flex flex-col gap-1 text-[12px] font-mono-stats"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white">{n.title}</span>
+                        <span className="text-[10px] text-[#8e9379]">{n.timestamp}</span>
+                      </div>
+                      <p className="text-[#c4c9ac] text-[11px] leading-relaxed">{n.body}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          <>
-            {/* HOME DASHBOARD VIEW */}
-            {activeTab === 'home' && (
-              <div className="flex flex-col gap-6 px-4 pt-3 w-full">
-                {/* Live Now Section */}
-                <section className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-[#FF3B30] pulse-animation" />
-                      <h2 className="font-headline font-bold text-[18px] text-white tracking-wide uppercase">
-                        Live Now
-                      </h2>
-                    </div>
-                    <span className="font-mono-stats text-[11px] text-[#c4c9ac]">
-                      Padel Pro Arena
-                    </span>
-                  </div>
-
-                  {/* Active Match Scorecard */}
-                  {activeLiveMatch && (
-                    <LiveMatchCard
-                      match={activeLiveMatch}
-                      onOpenMatch={(id) => setSelectedMatchId(id)}
-                    />
-                  )}
-                </section>
-
-                {/* Quick Actions Bento Grid */}
-                <section className="grid grid-cols-2 gap-3">
-                  {/* Primary Bento Action */}
-                  <button
-                    onClick={() => setSelectedMatchId(activeLiveMatch.id)}
-                    className="col-span-2 bg-[#c3f400] text-[#161e00] rounded-xl p-4 flex items-center justify-between transition-transform active:scale-[0.98] shadow-lg border border-[#c3f400]/40 group"
-                  >
-                    <div className="flex flex-col items-start text-left">
-                      <span className="font-headline font-extrabold text-[18px] leading-tight">
-                        Iniciar Partido & Control por Gestos
-                      </span>
-                      <span className="font-mono-stats text-[11px] opacity-80 mt-1">
-                        Marcador inteligente con cámara
-                      </span>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-[#161e00]/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                      <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        play_arrow
-                      </span>
-                    </div>
+          {/* MAIN MENU DRAWER */}
+          {showMenuDrawer && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-start">
+              <div className="bg-[#1e2023] w-full max-w-xs h-full p-5 border-r border-[#333539] flex flex-col gap-5 shadow-2xl overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-[#333539] pb-3">
+                  <h3 className="font-headline font-black text-[20px] text-[#c3f400]">
+                    PADEL PRO MENU
+                  </h3>
+                  <button onClick={() => setShowMenuDrawer(false)} className="text-[#c4c9ac]">
+                    <span className="material-symbols-outlined">close</span>
                   </button>
+                </div>
 
-                  {/* Secondary Bento Actions */}
-                  <button
-                    onClick={() => setActiveTab('tourneys')}
-                    className="bg-[#1e2023] rounded-xl p-4 flex flex-col items-start gap-3 border border-[#333539] hover:border-[#c3f400]/40 hover:bg-[#282a2e] transition-all active:scale-95 text-left shadow-md"
-                  >
-                    <span className="material-symbols-outlined text-[#c3f400] text-[28px]">search</span>
-                    <span className="font-headline font-bold text-[15px] leading-tight text-white">
-                      Buscar<br />Torneo
-                    </span>
-                  </button>
-
+                <div className="flex flex-col gap-2 font-mono-stats text-[13px]">
                   <button
                     onClick={() => {
-                      setSelectedPlayer(user);
-                      setActiveTab('profile');
+                      setActiveTab('home');
+                      setShowMenuDrawer(false);
                     }}
-                    className="bg-[#1e2023] rounded-xl p-4 flex flex-col items-start gap-3 border border-[#333539] hover:border-[#c3f400]/40 hover:bg-[#282a2e] transition-all active:scale-95 text-left shadow-md"
+                    className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
                   >
-                    <span className="material-symbols-outlined text-[#c3f400] text-[28px]">bar_chart</span>
-                    <span className="font-headline font-bold text-[15px] leading-tight text-white">
-                      Mis<br />Estadísticas
-                    </span>
+                    <span className="material-symbols-outlined text-[#c3f400]">home</span> Inicio
                   </button>
-                </section>
-
-                {/* My Next Match Card */}
-                <section className="flex flex-col gap-3">
-                  <h2 className="font-headline font-bold text-[16px] text-[#c4c9ac] uppercase tracking-wider pl-1">
-                    Mi Próximo Partido
-                  </h2>
-
-                  <div
-                    onClick={() => setSelectedMatchId('match_upcoming_02')}
-                    className="bg-[#1e2023] rounded-xl p-4 flex items-center gap-4 border border-[#333539] relative overflow-hidden group hover:border-[#c3f400]/50 transition-all cursor-pointer shadow-lg"
+                  <button
+                    onClick={() => {
+                      setActiveTab('tourneys');
+                      setShowMenuDrawer(false);
+                    }}
+                    className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
                   >
-                    {/* Calendar Date Block */}
-                    <div className="w-14 h-14 rounded-xl bg-[#0c0e12] flex flex-col items-center justify-center border border-[#333539] flex-shrink-0">
-                      <span className="font-mono-stats text-[10px] text-[#FF3B30] uppercase font-bold tracking-widest">
-                        OCT
-                      </span>
-                      <span className="font-headline font-black text-[22px] leading-none text-white mt-0.5">
-                        24
-                      </span>
-                    </div>
-
-                    {/* Match Info */}
-                    <div className="flex flex-col flex-1 gap-1 min-w-0">
-                      <div className="flex items-center gap-1.5 text-[#c3f400]">
-                        <span className="material-symbols-outlined text-[14px]">schedule</span>
-                        <span className="font-mono-stats text-[12px] font-bold">18:30 - 20:00</span>
-                      </div>
-                      <div className="font-headline font-bold text-[15px] text-white truncate">
-                        Cuartos de Final - Pro League
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[#c4c9ac] text-[12px] font-mono-stats">
-                        <span className="material-symbols-outlined text-[14px]">location_on</span>
-                        <span className="truncate">Pista 2 • Club Central</span>
-                      </div>
-                    </div>
-
-                    {/* Partner Avatar */}
-                    <div className="flex flex-col items-center justify-center flex-shrink-0 gap-1 pl-2 border-l border-[#333539]">
-                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#c3f400]/60">
-                        <img
-                          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
-                          alt="Partner"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="font-mono-stats text-[9px] text-[#c4c9ac]">Pareja</span>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            )}
-
-            {/* TOURNAMENTS VIEW */}
-            {activeTab === 'tourneys' && (
-              <TournamentsView
-                tournaments={tournaments}
-                pairs={pairs}
-                matches={matches}
-                role={role}
-                onCreateTournament={handleCreateTournament}
-                onRegisterPair={handleRegisterPair}
-                onDeleteTournament={handleDeleteTournament}
-                onOpenMatch={(id) => {
-                  setSelectedMatchId(id);
-                  setActiveTab('matches');
-                }}
-              />
-            )}
-
-            {/* MATCHES VIEW */}
-            {activeTab === 'matches' && (
-              <div className="flex flex-col gap-4 pb-24 px-4 pt-3 w-full">
-                <div className="border-b border-[#333539] pb-3">
-                  <h2 className="font-headline font-black text-[22px] text-white tracking-tight flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#c3f400] text-[28px]">sports_tennis</span>
-                    Partidos & Marcador en Vivo
-                  </h2>
-                  <p className="text-[12px] text-[#c4c9ac] font-mono-stats">
-                    Selecciona un partido para abrir la mesa de control o activar gestos de cámara
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  {matches.map((m) => (
-                    <LiveMatchCard
-                      key={m.id}
-                      match={m}
-                      onOpenMatch={(id) => setSelectedMatchId(id)}
-                    />
-                  ))}
+                    <span className="material-symbols-outlined text-[#c3f400]">emoji_events</span> Torneos
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('matches');
+                      setShowMenuDrawer(false);
+                    }}
+                    className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
+                  >
+                    <span className="material-symbols-outlined text-[#c3f400]">sports_tennis</span> Partidos
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('ranking');
+                      setShowMenuDrawer(false);
+                    }}
+                    className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
+                  >
+                    <span className="material-symbols-outlined text-[#c3f400]">leaderboard</span> Ranking
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('pairs');
+                      setShowMenuDrawer(false);
+                    }}
+                    className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
+                  >
+                    <span className="material-symbols-outlined text-[#c3f400]">groups</span> Parejas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUnitTestModal(true);
+                      setShowMenuDrawer(false);
+                    }}
+                    className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
+                  >
+                    <span className="material-symbols-outlined text-[#c3f400]">bug_report</span> Pruebas Scoring
+                  </button>
+                  {session && (
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setShowMenuDrawer(false);
+                      }}
+                      className="p-2.5 rounded-lg hover:bg-[#2e1d1d] text-left text-[#ffb4ab] flex items-center gap-3"
+                    >
+                      <span className="material-symbols-outlined text-[#FF3B30]">logout</span> Cerrar Sesión
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-
-            {/* RANKING VIEW */}
-            {activeTab === 'ranking' && (
-              <RankingsView
-                players={players}
-                onSelectPlayer={(p) => {
-                  setSelectedPlayer(p);
-                  setActiveTab('profile');
-                }}
-              />
-            )}
-
-            {/* PAIRS VIEW */}
-            {activeTab === 'pairs' && (
-              <PairsView
-                pairs={pairs}
-                players={players}
-                role={role}
-                onCreatePair={handleCreatePair}
-                onDissolvePair={handleDeletePair}
-              />
-            )}
-
-            {/* PROFILE VIEW */}
-            {activeTab === 'profile' && (
-              <PlayerProfileView
-                player={selectedPlayer || user}
-                onUpdateProfile={async (updated) => {
-                  setUser(updated);
-                  setPlayers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-                  await api.updateUser(updated.id, updated as unknown as Record<string, unknown>);
-                }}
-              />
-            )}
-
-            {/* ADMIN DASHBOARD VIEW */}
-            {activeTab === 'admin' && (
-              <AdminDashboardView
-                players={players}
-                tournaments={tournaments}
-                matches={matches}
-                courts={courts}
-                auditLogs={auditLogs}
-                onUpdateMatchCourt={handleUpdateMatchCourt}
-                onRunUnitTests={() => setShowUnitTestModal(true)}
-                onCreateUser={handleCreateUser}
-                onDeleteUser={handleDeleteUser}
-              />
-            )}
-          </>
-        </main>
-      )}
-
-      {/* FULLSCREEN MATCH CONTROLLER & CAMERA GESTURES OVERLAY */}
-      {selectedMatchId && (
-        <MatchController
-          match={matches.find((m) => m.id === selectedMatchId) || matches[0]}
-          onUpdateMatch={handleUpdateMatch}
-          onClose={() => setSelectedMatchId(null)}
-        />
-      )}
-
-      {/* UNIT TEST INSPECTOR MODAL */}
-      {showUnitTestModal && (
-        <RuleEngineTesterModal onClose={() => setShowUnitTestModal(false)} />
-      )}
-
-      {/* NOTIFICATIONS DRAWER */}
-      {showNotificationsDrawer && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end">
-          <div className="bg-[#1e2023] w-full max-w-sm h-full p-4 border-l border-[#333539] flex flex-col gap-4 shadow-2xl overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#333539] pb-3">
-              <h3 className="font-headline font-bold text-[18px] text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#c3f400]">notifications</span>
-                Notificaciones (FCM)
-              </h3>
-              <button
-                onClick={() => setShowNotificationsDrawer(false)}
-                className="text-[#c4c9ac] hover:text-white"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
             </div>
+          )}
 
-            <div className="flex flex-col gap-2.5">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className="bg-[#282a2e] p-3 rounded-xl border border-[#333539] flex flex-col gap-1 text-[12px] font-mono-stats"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white">{n.title}</span>
-                    <span className="text-[10px] text-[#8e9379]">{n.timestamp}</span>
-                  </div>
-                  <p className="text-[#c4c9ac] text-[11px] leading-relaxed">{n.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          {/* Fixed Bottom Nav Bar */}
+          <BottomNav
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+            role={role}
+            isMatchLiveNow={liveCount > 0}
+          />
+        </>
       )}
-
-      {/* MAIN MENU DRAWER */}
-      {showMenuDrawer && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-start">
-          <div className="bg-[#1e2023] w-full max-w-xs h-full p-5 border-r border-[#333539] flex flex-col gap-5 shadow-2xl overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#333539] pb-3">
-              <h3 className="font-headline font-black text-[20px] text-[#c3f400]">
-                PADEL PRO MENU
-              </h3>
-              <button onClick={() => setShowMenuDrawer(false)} className="text-[#c4c9ac]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2 font-mono-stats text-[13px]">
-              <button
-                onClick={() => {
-                  setActiveTab('home');
-                  setShowMenuDrawer(false);
-                }}
-                className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[#c3f400]">home</span> Inicio
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('tourneys');
-                  setShowMenuDrawer(false);
-                }}
-                className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[#c3f400]">emoji_events</span> Torneos
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('matches');
-                  setShowMenuDrawer(false);
-                }}
-                className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[#c3f400]">sports_tennis</span> Partidos
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('ranking');
-                  setShowMenuDrawer(false);
-                }}
-                className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[#c3f400]">leaderboard</span> Ranking
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('pairs');
-                  setShowMenuDrawer(false);
-                }}
-                className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[#c3f400]">groups</span> Parejas
-              </button>
-              <button
-                onClick={() => {
-                  setShowUnitTestModal(true);
-                  setShowMenuDrawer(false);
-                }}
-                className="p-2.5 rounded-lg hover:bg-[#282a2e] text-left text-white flex items-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[#c3f400]">bug_report</span> Pruebas Scoring
-              </button>
-              {session && (
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setShowMenuDrawer(false);
-                  }}
-                  className="p-2.5 rounded-lg hover:bg-[#2e1d1d] text-left text-[#ffb4ab] flex items-center gap-3"
-                >
-                  <span className="material-symbols-outlined text-[#FF3B30]">logout</span> Cerrar Sesión
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fixed Bottom Nav Bar */}
-      <BottomNav
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        role={role}
-        isMatchLiveNow={liveCount > 0}
-      />
     </div>
   );
 }
