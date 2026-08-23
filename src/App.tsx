@@ -35,7 +35,8 @@ import { PlayerProfileView } from './components/PlayerProfileView';
 import { PairsView } from './components/PairsView';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { RuleEngineTesterModal } from './components/RuleEngineTesterModal';
-import { api } from './api';
+import { LoginScreen } from './components/LoginScreen';
+import { api, API_BASE_NORMALIZED } from './api';
 import { createInitialGameScore } from './domain/scoringEngine';
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [loading, setLoading] = useState<boolean>(true);
   const [usingFallback, setUsingFallback] = useState<boolean>(false);
+  const [session, setSession] = useState<{ user: User; token: string } | null>(null);
 
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [players, setPlayers] = useState<User[]>(INITIAL_PLAYERS);
@@ -68,6 +70,22 @@ export default function App() {
     async function loadData() {
       setLoading(true);
       try {
+        const token = sessionStorage.getItem('padel_pro_token');
+        let currentUser: User | null = null;
+
+        if (token) {
+          try {
+            currentUser = await api.authMe(token);
+            if (!cancelled && currentUser) {
+              setSession({ user: currentUser, token });
+              setUser(currentUser);
+              setRole(currentUser.role);
+            }
+          } catch {
+            sessionStorage.removeItem('padel_pro_token');
+          }
+        }
+
         const [users, pairsData, tournamentsData, matchesData, courtsData, auditLogsData, notificationsData] = await Promise.all([
           api.getUsers(),
           api.getPairs(),
@@ -82,10 +100,12 @@ export default function App() {
 
         if (users && users.length > 0) {
           setPlayers(users);
-          const current = await api.getCurrentUser();
-          if (current) {
-            const typedCurrent = current as User;
-            setUser(typedCurrent);
+          if (!currentUser) {
+            const fallbackUser = await api.getCurrentUser();
+            if (fallbackUser) {
+              const typedFallback = fallbackUser as User;
+              setUser(typedFallback);
+            }
           }
         }
         if (pairsData) setPairs(pairsData as Pair[]);
@@ -126,6 +146,21 @@ export default function App() {
   // Handlers
   const handleToggleRole = () => {
     setRole((prev) => (prev === 'ADMIN' ? 'PLAYER' : 'ADMIN'));
+  };
+
+  const handleLogin = (userData: any, token: string) => {
+    const typedUser = userData as User;
+    sessionStorage.setItem('padel_pro_token', token);
+    setSession({ user: typedUser, token });
+    setUser(typedUser);
+    setRole(typedUser.role);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('padel_pro_token');
+    setSession(null);
+    setUser(INITIAL_USER);
+    setRole('ADMIN');
   };
 
   const handleUpdateMatch = async (updatedMatch: Match, newEvent?: MatchEvent) => {
@@ -540,23 +575,29 @@ export default function App() {
       />
 
       {/* Main View Router Content Area */}
-      <main className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)]">
-        {loading && (
+      {loading && (
+        <div className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)] flex items-center justify-center">
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-8 h-8 border-2 border-[#c3f400] border-t-transparent rounded-full animate-spin" />
             <p className="font-mono-stats text-[12px] text-[#c4c9ac]">Conectando con el servidor...</p>
           </div>
-        )}
+        </div>
+      )}
 
-        {!loading && usingFallback && (
-          <div className="px-4 pt-3">
-            <div className="bg-[#282a2e] border border-[#c3f400]/40 text-[#c3f400] text-[11px] font-mono-stats p-2.5 rounded-lg">
-              Backend no disponible. Mostrando datos locales.
+      {!loading && !session && (
+        <LoginScreen onLogin={handleLogin} apiBase={API_BASE_NORMALIZED} />
+      )}
+
+      {!loading && session && (
+        <main className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)]">
+          {usingFallback && (
+            <div className="px-4 pt-3">
+              <div className="bg-[#282a2e] border border-[#c3f400]/40 text-[#c3f400] text-[11px] font-mono-stats p-2.5 rounded-lg">
+                Backend no disponible. Mostrando datos locales.
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!loading && (
           <>
             {/* HOME DASHBOARD VIEW */}
             {activeTab === 'home' && (
@@ -773,8 +814,8 @@ export default function App() {
               />
             )}
           </>
-        )}
-      </main>
+        </main>
+      )}
 
       {/* FULLSCREEN MATCH CONTROLLER & CAMERA GESTURES OVERLAY */}
       {selectedMatchId && (
@@ -893,6 +934,17 @@ export default function App() {
               >
                 <span className="material-symbols-outlined text-[#c3f400]">bug_report</span> Pruebas Scoring
               </button>
+              {session && (
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setShowMenuDrawer(false);
+                  }}
+                  className="p-2.5 rounded-lg hover:bg-[#2e1d1d] text-left text-[#ffb4ab] flex items-center gap-3"
+                >
+                  <span className="material-symbols-outlined text-[#FF3B30]">logout</span> Cerrar Sesión
+                </button>
+              )}
             </div>
           </div>
         </div>

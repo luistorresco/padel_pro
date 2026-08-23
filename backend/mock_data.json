@@ -622,6 +622,14 @@
       "link_id": "tour_open_barcelona"
     }
   ],
+  "auth_users": [
+    {
+      "id": "usr_carlos_admin",
+      "email": "admin@padelpro.app",
+      "password": "PadelPro2026!",
+      "role": "ADMIN"
+    }
+  ],
   "gesture_configuration": {
     "point_team_a_gesture": "ROCK",
     "point_team_b_gesture": "CALL",

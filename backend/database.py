@@ -1,5 +1,6 @@
 import os
 import json
+import bcrypt
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
@@ -166,6 +167,14 @@ def create_schema(conn):
             required_hold_frames INTEGER NOT NULL,
             detection_zone TEXT,
             mode TEXT NOT NULL
+        )
+    """))
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS users_auth (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            hashed_password TEXT NOT NULL,
+            role TEXT NOT NULL
         )
     """))
 
@@ -356,6 +365,23 @@ def seed_data(conn, data):
         "detection_zone": json.dumps(gc["detection_zone"]),
         "mode": gc["mode"],
     })
+
+    auth_users = data.get("auth_users", [])
+    for auth_user in auth_users:
+        hashed = bcrypt.hashpw(auth_user["password"].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        conn.execute(text("""
+            INSERT INTO users_auth (id, email, hashed_password, role)
+            VALUES (:id, :email, :hashed_password, :role)
+            ON CONFLICT (id) DO UPDATE SET
+                email = EXCLUDED.email,
+                hashed_password = EXCLUDED.hashed_password,
+                role = EXCLUDED.role
+        """), {
+            "id": auth_user["id"],
+            "email": auth_user["email"],
+            "hashed_password": hashed,
+            "role": auth_user["role"],
+        })
 
 
 def init_db():

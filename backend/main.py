@@ -1,12 +1,14 @@
 import json
 import os
-from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
 from database import init_db, engine
 from sqlalchemy import text
+from jose import JWTError, jwt
+import bcrypt
 
 app = FastAPI(
     title="Padel Pro API",
@@ -21,6 +23,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "padel-pro-secret-key-change-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_DAYS = 7
+
+def create_access_token(user_id: str, role: str):
+    expire = datetime.utcnow() + timedelta(days=JWT_EXPIRATION_DAYS)
+    to_encode = {"sub": user_id, "role": role, "exp": expire}
+    return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+def decode_token(token: str):
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        return None
 
 _mock_data = None
 
@@ -43,6 +61,7 @@ def root():
 @app.get("/api")
 def api_info():
     return {"service": "Padel Pro Backend", "version": "1.0.0", "endpoints": [
+        "/api/auth/login", "/api/auth/register", "/api/auth/me",
         "/api/users", "/api/users/me", "/api/users/{user_id}",
         "/api/pairs", "/api/pairs/{pair_id}",
         "/api/tournaments", "/api/tournaments/{tournament_id}",
@@ -51,6 +70,119 @@ def api_info():
         "/api/audit-logs", "/api/notifications",
         "/api/gesture-config", "/api/stats"
     ]}
+
+# ==================== AUTH ====================
+
+@app.post("/api/auth/register")
+def register(body: dict):
+    email = body.get("email")
+    password = body.get("password")
+    name = body.get("name")
+    surname = body.get("surname")
+    username = body.get("username")
+    role = body.get("role", "PLAYER")
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT * FROM users_auth WHERE email = :email"), {"email": email})
+        if result.mappings().first():
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        user_id = "usr_" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+        conn.execute(text("""
+            INSERT INTO users_auth (id, email, hashed_password, role)
+            VALUES (:id, :email, :hashed_password, :role)
+        """), {
+            "id": user_id,
+            "email": email,
+            "hashed_password": hashed,
+            "role": role,
+        })
+
+        if name and surname:
+            conn.execute(text("""
+                INSERT INTO users (id, name, surname, username, email, role, avatar, level,
+                    position, dominant_hand, current_pair_id, points, partner_name, phone, stats)
+                VALUES (:id, :name, :surname, :username, :email, :role, :avatar, :level,
+                    :position, :dominant_hand, :current_pair_id, :points, :partner_name, :phone, :stats)
+                ON CONFLICT (id) DO UPDATE SET
+                    name = EXCLUDED.name, surname = EXCLUDED.surname, username = EXCLUDED.username,
+                    email = EXCLUDED.email, role = EXCLUDED.role, avatar = EXCLUDED.avatar,
+                    level = EXCLUDED.level, position = EXCLUDED.position,
+                    dominant_hand = EXCLUDED.dominant_hand, current_pair_id = EXCLUDED.current_pair_id,
+                    points = EXCLUDED.points, partner_name = EXCLUDED.partner_name,
+                    phone = EXCLUDED.phone, stats = EXCLUDED.stats
+            """), {
+                "id": user_id,
+                "name": name,
+                "surname": surname,
+                "username": username or email.split("@")[0],
+                "email": email,
+                "role": role,
+                "avatar": body.get("avatar"),
+                "level": body.get("level"),
+                "position": body.get("position"),
+                "dominant_hand": body.get("dominant_hand"),
+                "current_pair_id": body.get("current_pair_id"),
+                "points": body.get("points", 0),
+                "partner_name": body.get("partner_name"),
+                "phone": body.get("phone"),
+                "stats": json.dumps(body.get("stats", {})),
+            })
+
+    token = create_access_token(user_id, role)
+    return {"access_token": token, "token_type": "bearer", "user_id": user_id, "role": role}
+
+
+@app.post("/api/auth/login")
+def login(body: dict):
+    email = body.get("email")
+    password = body.get("password")
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT * FROM users_auth WHERE email = :email"), {"email": email})
+        row = result.mappings().first()
+        if not row:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        auth_user = dict(row)
+        if not bcrypt.checkpw(password.encode("utf-8"), auth_user["hashed_password"].encode("utf-8")):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        token = create_access_token(auth_user["id"], auth_user["role"])
+        return {"access_token": token, "token_type": "bearer", "user_id": auth_user["id"], "role": auth_user["role"]}
+
+
+@app.get("/api/auth/me")
+def auth_me(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+
+    token = authorization.replace("Bearer ", "")
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
+        row = result.mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user = dict(row)
+        if isinstance(user.get("stats"), str):
+            user["stats"] = json.loads(user["stats"])
+        return user
 
 # ==================== USERS ====================
 

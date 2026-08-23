@@ -1,6 +1,8 @@
 const API_BASE_NORMALIZED = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_NORMALIZED || 'http://localhost:8000';
 const API_BASE_NORMALIZED_NORMALIZED = API_BASE_NORMALIZED.replace(/\/+$/, '');
 
+export { API_BASE_NORMALIZED };
+
 async function handleResponse(response: Response) {
   if (!response.ok) {
     const text = await response.text();
@@ -101,4 +103,20 @@ export const api = {
   }).then(handleResponse),
 
   getStats: () => fetch(`${API_BASE_NORMALIZED}/api/stats`).then(handleResponse),
+
+  login: (email: string, password: string) => fetch(`${API_BASE_NORMALIZED}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  }).then(handleResponse),
+
+  register: (data: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).then(handleResponse),
+
+  authMe: (token: string) => fetch(`${API_BASE_NORMALIZED}/api/auth/me`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  }).then(handleResponse),
 };
