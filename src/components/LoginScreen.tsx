@@ -32,15 +32,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, apiBase }) =>
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.detail || data.message || 'Error en la autenticación');
+        throw new Error(data.detail || data.message || `Error ${response.status}: ${response.statusText}`);
       }
 
       onLogin(data, data.access_token);
     } catch (err: any) {
-      setError(err.message || 'Error desconocido');
+      const message = err.message || '';
+      if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('Network request failed')) {
+        setError('No se pudo conectar con el servidor. Verifica tu conexión o intenta más tarde.');
+      } else if (message.includes('401') || message.includes('Invalid credentials')) {
+        setError('Email o contraseña incorrectos');
+      } else if (message.includes('400')) {
+        setError('Datos incompletos. Revisa los campos e intenta de nuevo.');
+      } else if (message.includes('404')) {
+        setError('Servicio no disponible. Contacta al administrador.');
+      } else if (message) {
+        setError(message);
+      } else {
+        setError('Error desconocido. Intenta nuevamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -157,14 +170,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, apiBase }) =>
               {isRegister ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
             </button>
           </div>
-
-          {!isRegister && (
-            <div className="mt-4 p-3 bg-[#282a2e] rounded-lg border border-[#333539]">
-              <p className="text-[11px] font-mono-stats text-[#c4c9ac] text-center">
-                <span className="text-[#c3f400] font-bold">Admin:</span> admin@padelpro.app / PadelPro2026!
-              </p>
-            </div>
-          )}
         </div>
 
         <p className="text-center text-[10px] text-[#8e9379] font-mono-stats mt-6">
