@@ -119,7 +119,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
       {/* Tournaments Grid */}
       <div className="flex flex-col gap-4">
         {filteredTournaments.map((tour) => {
-          const registeredCount = tour.registeredPairIds.length;
+          const registeredCount = (tour.registeredPairIds || []).length;
           return (
             <div
               key={tour.id}

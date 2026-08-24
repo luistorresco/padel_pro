@@ -382,10 +382,16 @@ def get_tournaments():
             t = dict(row)
             if isinstance(t.get("registered_pair_ids"), str):
                 t["registered_pair_ids"] = json.loads(t["registered_pair_ids"])
+            else:
+                t["registered_pair_ids"] = []
             if isinstance(t.get("rules"), str):
                 t["rules"] = json.loads(t["rules"])
+            else:
+                t["rules"] = {}
             if isinstance(t.get("court_ids"), str):
                 t["court_ids"] = json.loads(t["court_ids"])
+            else:
+                t["court_ids"] = []
             tournaments.append(t)
         return tournaments
 
@@ -399,10 +405,16 @@ def get_tournament(tournament_id: str):
         t = dict(row)
         if isinstance(t.get("registered_pair_ids"), str):
             t["registered_pair_ids"] = json.loads(t["registered_pair_ids"])
+        else:
+            t["registered_pair_ids"] = []
         if isinstance(t.get("rules"), str):
             t["rules"] = json.loads(t["rules"])
+        else:
+            t["rules"] = {}
         if isinstance(t.get("court_ids"), str):
             t["court_ids"] = json.loads(t["court_ids"])
+        else:
+            t["court_ids"] = []
         return t
 
 @app.post("/api/tournaments")

@@ -76,7 +76,7 @@ export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onOpenMatch
         </div>
 
         {/* Sets */}
-        {match.sets.map((set, idx) => {
+        {(match.sets || []).map((set, idx) => {
           const isActiveSet = idx === match.currentSetIndex && isLive;
           return (
             <div

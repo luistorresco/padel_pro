@@ -517,7 +517,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
 
               {/* Set Games summary for Team A */}
               <div className="flex gap-2 mt-3 font-mono-stats text-[14px]">
-                {match.sets.map((s, idx) => (
+                {(match.sets || []).map((s, idx) => (
                   <span
                     key={idx}
                     className={`px-2 py-0.5 rounded font-bold ${
@@ -539,7 +539,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
 
               {/* Set Games summary for Team B */}
               <div className="flex gap-2 mt-3 font-mono-stats text-[14px]">
-                {match.sets.map((s, idx) => (
+                {(match.sets || []).map((s, idx) => (
                   <span
                     key={idx}
                     className={`px-2 py-0.5 rounded font-bold ${
