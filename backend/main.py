@@ -10,6 +10,31 @@ from sqlalchemy import text
 from jose import JWTError, jwt
 import bcrypt
 
+DEFAULT_STATS = {
+    "pointsWon": 0, "winners": 0, "smashes": 0, "smashesWon": 0, "voleasWon": 0,
+    "bandejas": 0, "viboras": 0, "remates": 0, "netPointsWon": 0, "touches": 0,
+    "shots": 0, "serves": 0, "firstServes": 0, "secondServes": 0, "aces": 0,
+    "doubleFaults": 0, "breakPoints": 0, "breakPointsWon": 0, "recoveries": 0,
+    "globos": 0, "devoluciones": 0, "movesCount": 0, "matchesPlayed": 0,
+    "matchesWon": 0, "matchesLost": 0, "setsWon": 0, "setsLost": 0, "gamesWon": 0,
+    "gamesLost": 0, "pointsWon": 0, "netPointsWon": 0, "timePlayedMin": 0,
+    "avgSpeedKmh": 0, "distanceKm": 0,
+}
+
+def normalize_stats(raw):
+    if not raw:
+        return dict(DEFAULT_STATS)
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = {}
+    out = dict(DEFAULT_STATS)
+    for k in out.keys():
+        if k in raw and raw[k] is not None:
+            out[k] = raw[k]
+    return out
+
 app = FastAPI(
     title="Padel Pro API",
     description="API REST para la gestión de torneos de padel",
@@ -131,7 +156,7 @@ def register(body: dict = Body(...)):
                 "points": body.get("points", 0),
                 "partner_name": body.get("partner_name"),
                 "phone": body.get("phone"),
-                "stats": json.dumps(body.get("stats", {})),
+                "stats": json.dumps(normalize_stats(body.get("stats"))),
             })
 
     token = create_access_token(user_id, role)
@@ -257,7 +282,7 @@ def create_user(user: dict, payload: dict = Depends(require_admin)):
             "position": user.get("position"), "dominant_hand": user.get("dominant_hand"),
             "current_pair_id": user.get("current_pair_id"), "points": user.get("points", 0),
             "partner_name": user.get("partner_name"), "phone": user.get("phone"),
-            "stats": json.dumps(user.get("stats", {})),
+            "stats": json.dumps(normalize_stats(user.get("stats"))),
         })
     return user
 

@@ -150,13 +150,22 @@ export default function App() {
     setRole((prev) => (prev === 'ADMIN' ? 'PLAYER' : 'ADMIN'));
   };
 
-  const handleLogin = (userData: any, token: string) => {
+  const handleLogin = async (userData: any, token: string) => {
     const typedUser = userData as User;
     sessionStorage.setItem('padel_pro_token', token);
     setAuthToken(token);
     setSession({ user: typedUser, token });
     setUser(typedUser);
     setRole(typedUser.role);
+
+    try {
+      const users = await api.getUsers();
+      if (users && users.length > 0) {
+        setPlayers(users as User[]);
+      }
+    } catch (e) {
+      console.warn('[App] Failed to reload users after login', e);
+    }
   };
 
   const handleLogout = () => {
@@ -507,7 +516,6 @@ export default function App() {
 
   const handleCreateUser = async (newUser: User) => {
     setPlayers((prev) => [...prev, newUser]);
-    setUser((prev) => ({ ...newUser, currentPairId: prev.currentPairId, partnerName: prev.partnerName }));
     const newAudit: AuditLog = {
       id: 'audit_' + Date.now(),
       adminName: user.name + ' ' + user.surname,
@@ -518,9 +526,15 @@ export default function App() {
       timestamp: new Date().toLocaleString(),
     };
     setAuditLogs((prev) => [newAudit, ...prev]);
-    api.createUser(newUser as unknown as Record<string, unknown>).catch((error) => {
+    try {
+      await api.createUser(newUser as unknown as Record<string, unknown>);
+      const users = await api.getUsers();
+      if (users && users.length > 0) {
+        setPlayers(users as User[]);
+      }
+    } catch (error) {
       console.error('[App] Failed to create user via API.', error);
-    });
+    }
   };
 
   const handleDeleteUser = async (userId: string) => {

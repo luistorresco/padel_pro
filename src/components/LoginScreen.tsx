@@ -1,4 +1,16 @@
 import React, { useState } from 'react';
+import { PlayerStats } from '../types';
+
+const EMPTY_STATS: PlayerStats = {
+  pointsWon: 0, winners: 0, smashes: 0, smashesWon: 0, voleasWon: 0,
+  bandejas: 0, viboras: 0, remates: 0, netPointsWon: 0, touches: 0,
+  shots: 0, serves: 0, firstServes: 0, secondServes: 0, aces: 0,
+  doubleFaults: 0, breakPoints: 0, breakPointsWon: 0, recoveries: 0,
+  globos: 0, devoluciones: 0, pointsSaved: 0, unforcedErrors: 0,
+  distanceKm: 0, timePlayedMin: 0, avgSpeedKmh: 0, movesCount: 0,
+  matchesPlayed: 0, matchesWon: 0, matchesLost: 0, setsWon: 0, setsLost: 0,
+  gamesWon: 0, gamesLost: 0,
+};
 
 interface LoginScreenProps {
   onLogin: (user: any, token: string) => void;
@@ -23,7 +35,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, apiBase }) =>
     try {
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
       const body = isRegister
-        ? { email, password, name, surname, username, role: 'PLAYER' }
+        ? { email, password, name, surname, username, role: 'PLAYER', stats: EMPTY_STATS }
         : { email, password };
 
       const response = await fetch(`${apiBase}${endpoint}`, {
