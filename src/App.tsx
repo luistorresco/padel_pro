@@ -494,16 +494,29 @@ export default function App() {
 
   const handleCreatePair = async (newPair: Pair) => {
     setPairs((prev) => [newPair, ...prev]);
-    api.createPair(newPair as unknown as Record<string, unknown>).catch((error) => {
+    try {
+      await api.createPair(newPair as unknown as Record<string, unknown>);
+      const updated = await api.getPairs();
+      if (updated) setPairs(updated as Pair[]);
+    } catch (error) {
       console.error('[App] Failed to create pair via API.', error);
-    });
+      setPairs((prev) => prev.filter((p) => p.id !== newPair.id));
+      alert('No se pudo guardar la pareja en el servidor.');
+    }
   };
 
   const handleDeletePair = async (pairId: string) => {
+    const previous = pairs;
     setPairs((prev) => prev.filter((p) => p.id !== pairId));
-    api.deletePair(pairId).catch((error) => {
+    try {
+      await api.deletePair(pairId);
+      const updated = await api.getPairs();
+      if (updated) setPairs(updated as Pair[]);
+    } catch (error) {
       console.error('[App] Failed to delete pair via API.', error);
-    });
+      setPairs(previous);
+      alert('No se pudo eliminar la pareja en el servidor.');
+    }
   };
 
   const handleUpdateMatchCourt = async (matchId: string, courtId: string, courtName: string) => {

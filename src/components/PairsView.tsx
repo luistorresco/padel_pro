@@ -65,13 +65,15 @@ export const PairsView: React.FC<PairsViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-[#c3f400] text-[#161e00] font-headline font-bold text-[12px] py-2 px-3.5 rounded-lg flex items-center gap-1 hover:bg-[#abd600] transition-all shadow-md"
-        >
-          <span className="material-symbols-outlined text-[18px]">add_circle</span>
-          <span>Formar Pareja</span>
-        </button>
+        {role === 'ADMIN' && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-[#c3f400] text-[#161e00] font-headline font-bold text-[12px] py-2 px-3.5 rounded-lg flex items-center gap-1 hover:bg-[#abd600] transition-all shadow-md"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>Formar Pareja</span>
+          </button>
+        )}
       </div>
 
       {/* Pairs List */}
