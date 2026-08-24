@@ -29,14 +29,15 @@ export const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     if (onUpdateProfile) {
-      onUpdateProfile({
+      const updatedPlayer: User = {
         ...player,
         name,
         surname,
         level,
         position,
         dominantHand,
-      });
+      };
+      onUpdateProfile(updatedPlayer);
     }
     setIsEditing(false);
   };

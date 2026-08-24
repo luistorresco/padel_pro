@@ -799,7 +799,9 @@ export default function App() {
                   onUpdateProfile={async (updated) => {
                     setUser(updated);
                     setPlayers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-                    await api.updateUser(updated.id, updated as unknown as Record<string, unknown>);
+                    if (updated.id) {
+                      await api.updateUser(updated.id, updated as unknown as Record<string, unknown>);
+                    }
                   }}
                 />
               )}
