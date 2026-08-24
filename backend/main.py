@@ -43,7 +43,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.onrender\.com|http://localhost:\d+",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -353,12 +353,18 @@ def create_pair(pair: dict, payload: dict = Depends(require_admin)):
                 created_at = EXCLUDED.created_at, status = EXCLUDED.status,
                 tournaments_disputed = EXCLUDED.tournaments_disputed, titles_won = EXCLUDED.titles_won
         """), {
-            "id": pair["id"], "name": pair["name"], "player1_id": pair["player1_id"],
-            "player2_id": pair["player2_id"], "player1_name": pair["player1_name"],
-            "player2_name": pair["player2_name"], "player1_avatar": pair.get("player1_avatar"),
-            "player2_avatar": pair.get("player2_avatar"), "created_at": pair.get("created_at"),
-            "status": pair["status"], "tournaments_disputed": pair.get("tournaments_disputed"),
-            "titles_won": pair.get("titles_won"),
+            "id": pair.get("id") or pair.get("player1Id") + "_" + pair.get("player2Id"),
+            "name": pair.get("name"),
+            "player1_id": pair.get("player1Id") or pair.get("player1_id"),
+            "player2_id": pair.get("player2Id") or pair.get("player2_id"),
+            "player1_name": pair.get("player1Name") or pair.get("player1_name"),
+            "player2_name": pair.get("player2Name") or pair.get("player2_name"),
+            "player1_avatar": pair.get("player1Avatar") or pair.get("player1_avatar"),
+            "player2_avatar": pair.get("player2Avatar") or pair.get("player2_avatar"),
+            "created_at": pair.get("createdAt") or pair.get("created_at"),
+            "status": pair.get("status"),
+            "tournaments_disputed": pair.get("tournamentsDisputed") or pair.get("tournaments_disputed"),
+            "titles_won": pair.get("titlesWon") or pair.get("titles_won"),
         })
     return pair
 
