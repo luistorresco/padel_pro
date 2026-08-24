@@ -20,10 +20,10 @@ export const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({
   const [position, setPosition] = useState(player.position);
   const [dominantHand, setDominantHand] = useState(player.dominantHand);
 
-  const stats = player.stats;
+  const stats = player.stats || {};
   const winRate =
-    stats.matchesPlayed > 0
-      ? Math.round((stats.matchesWon / stats.matchesPlayed) * 100)
+    (stats.matchesPlayed || 0) > 0
+      ? Math.round((stats.matchesWon || 0) / (stats.matchesPlayed || 0) * 100)
       : 0;
 
   const handleSaveProfile = (e: React.FormEvent) => {

@@ -211,6 +211,8 @@ def get_users():
             user = dict(row)
             if isinstance(user.get("stats"), str):
                 user["stats"] = json.loads(user["stats"])
+            if not user.get("stats"):
+                user["stats"] = {}
             users.append(user)
         return users
 
@@ -229,6 +231,8 @@ def get_user(user_id: str):
         user = dict(row)
         if isinstance(user.get("stats"), str):
             user["stats"] = json.loads(user["stats"])
+        if not user.get("stats"):
+            user["stats"] = {}
         return user
 
 @app.post("/api/users")
@@ -652,6 +656,8 @@ def db_get_users(payload: dict = Depends(require_admin)):
             user = dict(row)
             if isinstance(user.get("stats"), str):
                 user["stats"] = json.loads(user["stats"])
+            if not user.get("stats"):
+                user["stats"] = {}
             users.append(user)
         return users
 
