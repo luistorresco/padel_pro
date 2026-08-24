@@ -134,13 +134,13 @@ def register(body: dict = Body(...)):
                     position, dominant_hand, current_pair_id, points, partner_name, phone, stats)
                 VALUES (:id, :name, :surname, :username, :email, :role, :avatar, :level,
                     :position, :dominant_hand, :current_pair_id, :points, :partner_name, :phone, :stats)
-                ON CONFLICT (id) DO UPDATE SET
-                    name = EXCLUDED.name, surname = EXCLUDED.surname, username = EXCLUDED.username,
-                    email = EXCLUDED.email, role = EXCLUDED.role, avatar = EXCLUDED.avatar,
-                    level = EXCLUDED.level, position = EXCLUDED.position,
-                    dominant_hand = EXCLUDED.dominant_hand, current_pair_id = EXCLUDED.current_pair_id,
-                    points = EXCLUDED.points, partner_name = EXCLUDED.partner_name,
-                    phone = EXCLUDED.phone, stats = EXCLUDED.stats
+                ON DUPLICATE KEY UPDATE
+                    name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
+                    email = VALUES(email), role = VALUES(role), avatar = VALUES(avatar),
+                    level = VALUES(level), position = VALUES(position),
+                    dominant_hand = VALUES(dominant_hand), current_pair_id = VALUES(current_pair_id),
+                    points = VALUES(points), partner_name = VALUES(partner_name),
+                    phone = VALUES(phone), stats = VALUES(stats)
             """), {
                 "id": user_id,
                 "name": name,
@@ -268,13 +268,13 @@ def create_user(user: dict, payload: dict = Depends(require_admin)):
                 position, dominant_hand, current_pair_id, points, partner_name, phone, stats)
             VALUES (:id, :name, :surname, :username, :email, :role, :avatar, :level,
                 :position, :dominant_hand, :current_pair_id, :points, :partner_name, :phone, :stats)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, surname = EXCLUDED.surname, username = EXCLUDED.username,
-                email = EXCLUDED.email, role = EXCLUDED.role, avatar = EXCLUDED.avatar,
-                level = EXCLUDED.level, position = EXCLUDED.position,
-                dominant_hand = EXCLUDED.dominant_hand, current_pair_id = EXCLUDED.current_pair_id,
-                points = EXCLUDED.points, partner_name = EXCLUDED.partner_name,
-                phone = EXCLUDED.phone, stats = EXCLUDED.stats
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
+                email = VALUES(email), role = VALUES(role), avatar = VALUES(avatar),
+                level = VALUES(level), position = VALUES(position),
+                dominant_hand = VALUES(dominant_hand), current_pair_id = VALUES(current_pair_id),
+                points = VALUES(points), partner_name = VALUES(partner_name),
+                phone = VALUES(phone), stats = VALUES(stats)
         """), {
             "id": user["id"], "name": user["name"], "surname": user["surname"],
             "username": user["username"], "email": user["email"], "role": user["role"],
@@ -346,12 +346,12 @@ def create_pair(pair: dict, payload: dict = Depends(require_admin)):
                 player1_avatar, player2_avatar, created_at, status, tournaments_disputed, titles_won)
             VALUES (:id, :name, :player1_id, :player2_id, :player1_name, :player2_name,
                 :player1_avatar, :player2_avatar, :created_at, :status, :tournaments_disputed, :titles_won)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, player1_id = EXCLUDED.player1_id, player2_id = EXCLUDED.player2_id,
-                player1_name = EXCLUDED.player1_name, player2_name = EXCLUDED.player2_name,
-                player1_avatar = EXCLUDED.player1_avatar, player2_avatar = EXCLUDED.player2_avatar,
-                created_at = EXCLUDED.created_at, status = EXCLUDED.status,
-                tournaments_disputed = EXCLUDED.tournaments_disputed, titles_won = EXCLUDED.titles_won
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), player1_id = VALUES(player1_id), player2_id = VALUES(player2_id),
+                player1_name = VALUES(player1_name), player2_name = VALUES(player2_name),
+                player1_avatar = VALUES(player1_avatar), player2_avatar = VALUES(player2_avatar),
+                created_at = VALUES(created_at), status = VALUES(status),
+                tournaments_disputed = VALUES(tournaments_disputed), titles_won = VALUES(titles_won)
         """), {
             "id": pair.get("id") or pair.get("player1Id") + "_" + pair.get("player2Id"),
             "name": pair.get("name"),
@@ -431,12 +431,12 @@ def create_tournament(tournament: dict, payload: dict = Depends(require_admin)):
                 start_date, end_date, status, format, max_pairs, registered_pair_ids, rules, court_ids)
             VALUES (:id, :name, :logo, :description, :category, :level, :location,
                 :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :rules, :court_ids)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, logo = EXCLUDED.logo, description = EXCLUDED.description,
-                category = EXCLUDED.category, level = EXCLUDED.level, location = EXCLUDED.location,
-                start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, status = EXCLUDED.status,
-                format = EXCLUDED.format, max_pairs = EXCLUDED.max_pairs,
-                registered_pair_ids = EXCLUDED.registered_pair_ids, rules = EXCLUDED.rules, court_ids = EXCLUDED.court_ids
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), logo = VALUES(logo), description = VALUES(description),
+                category = VALUES(category), level = VALUES(level), location = VALUES(location),
+                start_date = VALUES(start_date), end_date = VALUES(end_date), status = VALUES(status),
+                format = VALUES(format), max_pairs = VALUES(max_pairs),
+                registered_pair_ids = VALUES(registered_pair_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
         """), {
             "id": tournament["id"], "name": tournament["name"], "logo": tournament.get("logo"),
             "description": tournament.get("description"), "category": tournament.get("category"),
@@ -611,10 +611,10 @@ def create_audit_log(log: dict, payload: dict = Depends(require_admin)):
         conn.execute(text("""
             INSERT INTO audit_logs (id, admin_name, admin_email, action, target, details, timestamp)
             VALUES (:id, :admin_name, :admin_email, :action, :target, :details, :timestamp)
-            ON CONFLICT (id) DO UPDATE SET
-                admin_name = EXCLUDED.admin_name, admin_email = EXCLUDED.admin_email,
-                action = EXCLUDED.action, target = EXCLUDED.target,
-                details = EXCLUDED.details, timestamp = EXCLUDED.timestamp
+            ON DUPLICATE KEY UPDATE
+                admin_name = VALUES(admin_name), admin_email = VALUES(admin_email),
+                action = VALUES(action), target = VALUES(target),
+                details = VALUES(details), timestamp = VALUES(timestamp)
         """), {
             "id": log["id"], "admin_name": log["admin_name"], "admin_email": log["admin_email"],
             "action": log["action"], "target": log["target"], "details": log.get("details"),
@@ -637,9 +637,9 @@ def create_notification(notification: dict, payload: dict = Depends(require_admi
         conn.execute(text("""
             INSERT INTO notifications (id, title, body, timestamp, read, type, link_id)
             VALUES (:id, :title, :body, :timestamp, :read, :type, :link_id)
-            ON CONFLICT (id) DO UPDATE SET
-                title = EXCLUDED.title, body = EXCLUDED.body, timestamp = EXCLUDED.timestamp,
-                read = EXCLUDED.read, type = EXCLUDED.type, link_id = EXCLUDED.link_id
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title), body = VALUES(body), timestamp = VALUES(timestamp),
+                read = VALUES(read), type = VALUES(type), link_id = VALUES(link_id)
         """), {
             "id": notification["id"], "title": notification["title"], "body": notification.get("body"),
             "timestamp": notification["timestamp"], "read": notification.get("read", False),

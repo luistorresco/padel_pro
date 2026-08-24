@@ -4,14 +4,15 @@ import bcrypt
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "sqlite:///" + os.path.join(os.path.dirname(__file__), "padel_pro.db"),
-)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Configure it in your environment variables."
+    )
 
 MOCK_DATA_PATH = os.path.join(os.path.dirname(__file__), "mock_data.json")
 
-engine = create_engine(DATABASE_URL, future=True)
+engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 
 def load_mock_data():
     with open(MOCK_DATA_PATH, "r", encoding="utf-8") as f:
@@ -20,7 +21,7 @@ def load_mock_data():
 def create_schema(conn):
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             name TEXT NOT NULL,
             surname TEXT NOT NULL,
             username TEXT NOT NULL UNIQUE,
@@ -39,7 +40,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS pairs (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             name TEXT NOT NULL,
             player1_id TEXT NOT NULL,
             player2_id TEXT NOT NULL,
@@ -55,7 +56,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS courts (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             name TEXT NOT NULL,
             location TEXT NOT NULL,
             number INTEGER NOT NULL,
@@ -65,7 +66,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS tournaments (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             name TEXT NOT NULL,
             logo TEXT,
             description TEXT,
@@ -84,7 +85,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS matches (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             tournament_id TEXT,
             tournament_name TEXT,
             court_id TEXT,
@@ -121,7 +122,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS audit_logs (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             admin_name TEXT NOT NULL,
             admin_email TEXT NOT NULL,
             action TEXT NOT NULL,
@@ -132,7 +133,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS notifications (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             title TEXT NOT NULL,
             body TEXT,
             timestamp TEXT NOT NULL,
@@ -143,7 +144,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS match_events (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             match_id TEXT NOT NULL,
             set_number INTEGER NOT NULL,
             game_number INTEGER NOT NULL,
@@ -171,7 +172,7 @@ def create_schema(conn):
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS users_auth (
-            id TEXT PRIMARY KEY,
+            id VARCHAR(255) PRIMARY KEY,
             email TEXT NOT NULL UNIQUE,
             hashed_password TEXT NOT NULL,
             role TEXT NOT NULL
@@ -185,13 +186,13 @@ def seed_data(conn, data):
                 position, dominant_hand, current_pair_id, points, partner_name, phone, stats)
             VALUES (:id, :name, :surname, :username, :email, :role, :avatar, :level,
                 :position, :dominant_hand, :current_pair_id, :points, :partner_name, :phone, :stats)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, surname = EXCLUDED.surname, username = EXCLUDED.username,
-                email = EXCLUDED.email, role = EXCLUDED.role, avatar = EXCLUDED.avatar,
-                level = EXCLUDED.level, position = EXCLUDED.position,
-                dominant_hand = EXCLUDED.dominant_hand, current_pair_id = EXCLUDED.current_pair_id,
-                points = EXCLUDED.points, partner_name = EXCLUDED.partner_name,
-                phone = EXCLUDED.phone, stats = EXCLUDED.stats
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
+                email = VALUES(email), role = VALUES(role), avatar = VALUES(avatar),
+                level = VALUES(level), position = VALUES(position),
+                dominant_hand = VALUES(dominant_hand), current_pair_id = VALUES(current_pair_id),
+                points = VALUES(points), partner_name = VALUES(partner_name),
+                phone = VALUES(phone), stats = VALUES(stats)
         """), {
             "id": user["id"], "name": user["name"], "surname": user["surname"],
             "username": user["username"], "email": user["email"], "role": user["role"],
@@ -208,12 +209,12 @@ def seed_data(conn, data):
                 player1_avatar, player2_avatar, created_at, status, tournaments_disputed, titles_won)
             VALUES (:id, :name, :player1_id, :player2_id, :player1_name, :player2_name,
                 :player1_avatar, :player2_avatar, :created_at, :status, :tournaments_disputed, :titles_won)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, player1_id = EXCLUDED.player1_id, player2_id = EXCLUDED.player2_id,
-                player1_name = EXCLUDED.player1_name, player2_name = EXCLUDED.player2_name,
-                player1_avatar = EXCLUDED.player1_avatar, player2_avatar = EXCLUDED.player2_avatar,
-                created_at = EXCLUDED.created_at, status = EXCLUDED.status,
-                tournaments_disputed = EXCLUDED.tournaments_disputed, titles_won = EXCLUDED.titles_won
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), player1_id = VALUES(player1_id), player2_id = VALUES(player2_id),
+                player1_name = VALUES(player1_name), player2_name = VALUES(player2_name),
+                player1_avatar = VALUES(player1_avatar), player2_avatar = VALUES(player2_avatar),
+                created_at = VALUES(created_at), status = VALUES(status),
+                tournaments_disputed = VALUES(tournaments_disputed), titles_won = VALUES(titles_won)
         """), {
             "id": pair["id"], "name": pair["name"], "player1_id": pair["player1_id"],
             "player2_id": pair["player2_id"], "player1_name": pair["player1_name"],
@@ -227,9 +228,9 @@ def seed_data(conn, data):
         conn.execute(text("""
             INSERT INTO courts (id, name, location, number, status, current_match_id)
             VALUES (:id, :name, :location, :number, :status, :current_match_id)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, location = EXCLUDED.location, number = EXCLUDED.number,
-                status = EXCLUDED.status, current_match_id = EXCLUDED.current_match_id
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), location = VALUES(location), number = VALUES(number),
+                status = VALUES(status), current_match_id = VALUES(current_match_id)
         """), {
             "id": court["id"], "name": court["name"], "location": court["location"],
             "number": court["number"], "status": court["status"],
@@ -242,12 +243,12 @@ def seed_data(conn, data):
                 start_date, end_date, status, format, max_pairs, registered_pair_ids, rules, court_ids)
             VALUES (:id, :name, :logo, :description, :category, :level, :location,
                 :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :rules, :court_ids)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name, logo = EXCLUDED.logo, description = EXCLUDED.description,
-                category = EXCLUDED.category, level = EXCLUDED.level, location = EXCLUDED.location,
-                start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, status = EXCLUDED.status,
-                format = EXCLUDED.format, max_pairs = EXCLUDED.max_pairs,
-                registered_pair_ids = EXCLUDED.registered_pair_ids, rules = EXCLUDED.rules, court_ids = EXCLUDED.court_ids
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name), logo = VALUES(logo), description = VALUES(description),
+                category = VALUES(category), level = VALUES(level), location = VALUES(location),
+                start_date = VALUES(start_date), end_date = VALUES(end_date), status = VALUES(status),
+                format = VALUES(format), max_pairs = VALUES(max_pairs),
+                registered_pair_ids = VALUES(registered_pair_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
         """), {
             "id": t["id"], "name": t["name"], "logo": t.get("logo"), "description": t.get("description"),
             "category": t.get("category"), "level": t.get("level"), "location": t.get("location"),
@@ -272,22 +273,22 @@ def seed_data(conn, data):
                 :player_b2_name, :player_a1_avatar, :player_a2_avatar, :player_b1_avatar, :player_b2_avatar,
                 :status, :sets, :current_game, :current_set_index, :winner_pair_id, :winner_team,
                 :start_time_ms, :elapsed_time_sec, :golden_point, :sets_to_win, :round_name)
-            ON CONFLICT (id) DO UPDATE SET
-                tournament_id = EXCLUDED.tournament_id, tournament_name = EXCLUDED.tournament_name,
-                court_id = EXCLUDED.court_id, court_name = EXCLUDED.court_name, date_time = EXCLUDED.date_time,
-                pair_a_id = EXCLUDED.pair_a_id, pair_b_id = EXCLUDED.pair_b_id,
-                pair_a_name = EXCLUDED.pair_a_name, pair_b_name = EXCLUDED.pair_b_name,
-                player_a1_id = EXCLUDED.player_a1_id, player_a2_id = EXCLUDED.player_a2_id,
-                player_b1_id = EXCLUDED.player_b1_id, player_b2_id = EXCLUDED.player_b2_id,
-                player_a1_name = EXCLUDED.player_a1_name, player_a2_name = EXCLUDED.player_a2_name,
-                player_b1_name = EXCLUDED.player_b1_name, player_b2_name = EXCLUDED.player_b2_name,
-                player_a1_avatar = EXCLUDED.player_a1_avatar, player_a2_avatar = EXCLUDED.player_a2_avatar,
-                player_b1_avatar = EXCLUDED.player_b1_avatar, player_b2_avatar = EXCLUDED.player_b2_avatar,
-                status = EXCLUDED.status, sets = EXCLUDED.sets, current_game = EXCLUDED.current_game,
-                current_set_index = EXCLUDED.current_set_index, winner_pair_id = EXCLUDED.winner_pair_id,
-                winner_team = EXCLUDED.winner_team, start_time_ms = EXCLUDED.start_time_ms,
-                elapsed_time_sec = EXCLUDED.elapsed_time_sec, golden_point = EXCLUDED.golden_point,
-                sets_to_win = EXCLUDED.sets_to_win, round_name = EXCLUDED.round_name
+            ON DUPLICATE KEY UPDATE
+                tournament_id = VALUES(tournament_id), tournament_name = VALUES(tournament_name),
+                court_id = VALUES(court_id), court_name = VALUES(court_name), date_time = VALUES(date_time),
+                pair_a_id = VALUES(pair_a_id), pair_b_id = VALUES(pair_b_id),
+                pair_a_name = VALUES(pair_a_name), pair_b_name = VALUES(pair_b_name),
+                player_a1_id = VALUES(player_a1_id), player_a2_id = VALUES(player_a2_id),
+                player_b1_id = VALUES(player_b1_id), player_b2_id = VALUES(player_b2_id),
+                player_a1_name = VALUES(player_a1_name), player_a2_name = VALUES(player_a2_name),
+                player_b1_name = VALUES(player_b1_name), player_b2_name = VALUES(player_b2_name),
+                player_a1_avatar = VALUES(player_a1_avatar), player_a2_avatar = VALUES(player_a2_avatar),
+                player_b1_avatar = VALUES(player_b1_avatar), player_b2_avatar = VALUES(player_b2_avatar),
+                status = VALUES(status), sets = VALUES(sets), current_game = VALUES(current_game),
+                current_set_index = VALUES(current_set_index), winner_pair_id = VALUES(winner_pair_id),
+                winner_team = VALUES(winner_team), start_time_ms = VALUES(start_time_ms),
+                elapsed_time_sec = VALUES(elapsed_time_sec), golden_point = VALUES(golden_point),
+                sets_to_win = VALUES(sets_to_win), round_name = VALUES(round_name)
         """), {
             "id": m["id"], "tournament_id": m.get("tournament_id"),
             "tournament_name": m.get("tournament_name"), "court_id": m.get("court_id"),
@@ -315,10 +316,10 @@ def seed_data(conn, data):
         conn.execute(text("""
             INSERT INTO audit_logs (id, admin_name, admin_email, action, target, details, timestamp)
             VALUES (:id, :admin_name, :admin_email, :action, :target, :details, :timestamp)
-            ON CONFLICT (id) DO UPDATE SET
-                admin_name = EXCLUDED.admin_name, admin_email = EXCLUDED.admin_email,
-                action = EXCLUDED.action, target = EXCLUDED.target,
-                details = EXCLUDED.details, timestamp = EXCLUDED.timestamp
+            ON DUPLICATE KEY UPDATE
+                admin_name = VALUES(admin_name), admin_email = VALUES(admin_email),
+                action = VALUES(action), target = VALUES(target),
+                details = VALUES(details), timestamp = VALUES(timestamp)
         """), {
             "id": log["id"], "admin_name": log["admin_name"], "admin_email": log["admin_email"],
             "action": log["action"], "target": log["target"], "details": log.get("details"),
@@ -329,9 +330,9 @@ def seed_data(conn, data):
         conn.execute(text("""
             INSERT INTO notifications (id, title, body, timestamp, read, type, link_id)
             VALUES (:id, :title, :body, :timestamp, :read, :type, :link_id)
-            ON CONFLICT (id) DO UPDATE SET
-                title = EXCLUDED.title, body = EXCLUDED.body, timestamp = EXCLUDED.timestamp,
-                read = EXCLUDED.read, type = EXCLUDED.type, link_id = EXCLUDED.link_id
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title), body = VALUES(body), timestamp = VALUES(timestamp),
+                read = VALUES(read), type = VALUES(type), link_id = VALUES(link_id)
         """), {
             "id": notif["id"], "title": notif["title"], "body": notif.get("body"),
             "timestamp": notif["timestamp"], "read": notif.get("read", False),
@@ -346,15 +347,15 @@ def seed_data(conn, data):
         VALUES (1, :point_team_a_gesture, :point_team_b_gesture, :undo_gesture,
             :cooldown_ms,
             :min_confidence, :required_hold_frames, :detection_zone, :mode)
-        ON CONFLICT (id) DO UPDATE SET
-            point_team_a_gesture = EXCLUDED.point_team_a_gesture,
-            point_team_b_gesture = EXCLUDED.point_team_b_gesture,
-            undo_gesture = EXCLUDED.undo_gesture,
-            cooldown_ms = EXCLUDED.cooldown_ms,
-            min_confidence = EXCLUDED.min_confidence,
-            required_hold_frames = EXCLUDED.required_hold_frames,
-            detection_zone = EXCLUDED.detection_zone,
-            mode = EXCLUDED.mode
+        ON DUPLICATE KEY UPDATE
+            point_team_a_gesture = VALUES(point_team_a_gesture),
+            point_team_b_gesture = VALUES(point_team_b_gesture),
+            undo_gesture = VALUES(undo_gesture),
+            cooldown_ms = VALUES(cooldown_ms),
+            min_confidence = VALUES(min_confidence),
+            required_hold_frames = VALUES(required_hold_frames),
+            detection_zone = VALUES(detection_zone),
+            mode = VALUES(mode)
     """), {
         "point_team_a_gesture": gc["point_team_a_gesture"],
         "point_team_b_gesture": gc["point_team_b_gesture"],
@@ -372,10 +373,10 @@ def seed_data(conn, data):
         conn.execute(text("""
             INSERT INTO users_auth (id, email, hashed_password, role)
             VALUES (:id, :email, :hashed_password, :role)
-            ON CONFLICT (id) DO UPDATE SET
-                email = EXCLUDED.email,
-                hashed_password = EXCLUDED.hashed_password,
-                role = EXCLUDED.role
+            ON DUPLICATE KEY UPDATE
+                email = VALUES(email),
+                hashed_password = VALUES(hashed_password),
+                role = VALUES(role)
         """), {
             "id": auth_user["id"],
             "email": auth_user["email"],
