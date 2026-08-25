@@ -635,11 +635,11 @@ def get_notifications(payload: dict = Depends(get_current_user)):
 def create_notification(notification: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO notifications (id, title, body, timestamp, read, type, link_id)
+            INSERT INTO notifications (id, title, body, timestamp, `read`, `type`, link_id)
             VALUES (:id, :title, :body, :timestamp, :read, :type, :link_id)
             ON DUPLICATE KEY UPDATE
                 title = VALUES(title), body = VALUES(body), timestamp = VALUES(timestamp),
-                read = VALUES(read), type = VALUES(type), link_id = VALUES(link_id)
+                `read` = VALUES(`read`), `type` = VALUES(`type`), link_id = VALUES(link_id)
         """), {
             "id": notification["id"], "title": notification["title"], "body": notification.get("body"),
             "timestamp": notification["timestamp"], "read": notification.get("read", False),

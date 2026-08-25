@@ -1,183 +1,231 @@
+#!/usr/bin/env python3
+"""
+Standalone MySQL initializer for Padel Pro.
+- Creates tables if they do not exist.
+- Seeds data from backend/mock_data.json.
+- Safe to run multiple times (idempotent inserts).
+
+Usage:
+  1) Configure DATABASE_URL in your environment or .env
+  2) python backend/seed_mysql.py
+"""
+
 import os
 import json
 import bcrypt
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
 
+# ---------------------------------------------------------------------------
+# Load DATABASE_URL from environment or .env file
+# ---------------------------------------------------------------------------
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if not DATABASE_URL:
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.isfile(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                if key.strip() == "DATABASE_URL":
+                    DATABASE_URL = value.strip().strip('"').strip("'")
+                    break
+
 if not DATABASE_URL:
     raise RuntimeError(
-        "DATABASE_URL is not set. Configure it in your environment variables."
+        "DATABASE_URL is not set. Export it or add it to backend/.env"
     )
 
-MOCK_DATA_PATH = os.path.join(os.path.dirname(__file__), "mock_data.json")
-
+# ---------------------------------------------------------------------------
+# Connect
+# ---------------------------------------------------------------------------
 engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 
-def load_mock_data():
-    with open(MOCK_DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def create_schema(conn):
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS users (
-            id VARCHAR(255) PRIMARY KEY,
-            name TEXT NOT NULL,
-            surname TEXT NOT NULL,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            role TEXT NOT NULL,
-            avatar TEXT,
-            level TEXT,
-            position TEXT,
-            dominant_hand TEXT,
-            current_pair_id TEXT,
-            points INTEGER DEFAULT 0,
-            partner_name TEXT,
-            phone TEXT,
-            stats TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS pairs (
-            id VARCHAR(255) PRIMARY KEY,
-            name TEXT NOT NULL,
-            player1_id TEXT NOT NULL,
-            player2_id TEXT NOT NULL,
-            player1_name TEXT NOT NULL,
-            player2_name TEXT NOT NULL,
-            player1_avatar TEXT,
-            player2_avatar TEXT,
-            created_at TEXT,
-            status TEXT NOT NULL,
-            tournaments_disputed INTEGER,
-            titles_won INTEGER
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS courts (
-            id VARCHAR(255) PRIMARY KEY,
-            name TEXT NOT NULL,
-            location TEXT NOT NULL,
-            number INTEGER NOT NULL,
-            status TEXT NOT NULL,
-            current_match_id TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS tournaments (
-            id VARCHAR(255) PRIMARY KEY,
-            name TEXT NOT NULL,
-            logo TEXT,
-            description TEXT,
-            category TEXT,
-            level TEXT,
-            location TEXT,
-            start_date TEXT,
-            end_date TEXT,
-            status TEXT,
-            format TEXT,
-            max_pairs INTEGER,
-            registered_pair_ids TEXT,
-            rules TEXT,
-            court_ids TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS matches (
-            id VARCHAR(255) PRIMARY KEY,
-            tournament_id TEXT,
-            tournament_name TEXT,
-            court_id TEXT,
-            court_name TEXT NOT NULL,
-            date_time TEXT NOT NULL,
-            pair_a_id TEXT NOT NULL,
-            pair_b_id TEXT NOT NULL,
-            pair_a_name TEXT NOT NULL,
-            pair_b_name TEXT NOT NULL,
-            player_a1_id TEXT NOT NULL,
-            player_a2_id TEXT NOT NULL,
-            player_b1_id TEXT NOT NULL,
-            player_b2_id TEXT NOT NULL,
-            player_a1_name TEXT NOT NULL,
-            player_a2_name TEXT NOT NULL,
-            player_b1_name TEXT NOT NULL,
-            player_b2_name TEXT NOT NULL,
-            player_a1_avatar TEXT,
-            player_a2_avatar TEXT,
-            player_b1_avatar TEXT,
-            player_b2_avatar TEXT,
-            status TEXT NOT NULL,
-            sets TEXT,
-            current_game TEXT,
-            current_set_index INTEGER,
-            winner_pair_id TEXT,
-            winner_team TEXT,
-            start_time_ms INTEGER,
-            elapsed_time_sec INTEGER NOT NULL,
-            golden_point INTEGER NOT NULL,
-            sets_to_win INTEGER NOT NULL,
-            round_name TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id VARCHAR(255) PRIMARY KEY,
-            admin_name TEXT NOT NULL,
-            admin_email TEXT NOT NULL,
-            action TEXT NOT NULL,
-            target TEXT NOT NULL,
-            details TEXT,
-            timestamp TEXT NOT NULL
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS notifications (
-            id VARCHAR(255) PRIMARY KEY,
-            title TEXT NOT NULL,
-            body TEXT,
-            timestamp TEXT NOT NULL,
-            `read` INTEGER NOT NULL,
-            `type` TEXT NOT NULL,
-            link_id TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS match_events (
-            id VARCHAR(255) PRIMARY KEY,
-            match_id TEXT NOT NULL,
-            set_number INTEGER NOT NULL,
-            game_number INTEGER NOT NULL,
-            timestamp TEXT NOT NULL,
-            winning_pair_id TEXT NOT NULL,
-            player_id TEXT,
-            player_name TEXT,
-            event_type TEXT NOT NULL,
-            description TEXT,
-            score_snapshot TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS gesture_config (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            point_team_a_gesture TEXT NOT NULL,
-            point_team_b_gesture TEXT NOT NULL,
-            undo_gesture TEXT NOT NULL,
-            cooldown_ms INTEGER NOT NULL,
-            min_confidence REAL NOT NULL,
-            required_hold_frames INTEGER NOT NULL,
-            detection_zone TEXT,
-            mode TEXT NOT NULL
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS users_auth (
-            id VARCHAR(255) PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE,
-            hashed_password TEXT NOT NULL,
-            role TEXT NOT NULL
-        )
-    """))
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
+CREATE_TABLES_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    role TEXT NOT NULL,
+    avatar TEXT,
+    level TEXT,
+    position TEXT,
+    dominant_hand TEXT,
+    current_pair_id TEXT,
+    points INTEGER DEFAULT 0,
+    partner_name TEXT,
+    phone TEXT,
+    stats TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pairs (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    player1_id TEXT NOT NULL,
+    player2_id TEXT NOT NULL,
+    player1_name TEXT NOT NULL,
+    player2_name TEXT NOT NULL,
+    player1_avatar TEXT,
+    player2_avatar TEXT,
+    created_at TEXT,
+    status TEXT NOT NULL,
+    tournaments_disputed INTEGER,
+    titles_won INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS courts (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    location TEXT NOT NULL,
+    number INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    current_match_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS tournaments (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    logo TEXT,
+    description TEXT,
+    category TEXT,
+    level TEXT,
+    location TEXT,
+    start_date TEXT,
+    end_date TEXT,
+    status TEXT,
+    format TEXT,
+    max_pairs INTEGER,
+    registered_pair_ids TEXT,
+    rules TEXT,
+    court_ids TEXT
+);
+
+CREATE TABLE IF NOT EXISTS matches (
+    id VARCHAR(255) PRIMARY KEY,
+    tournament_id TEXT,
+    tournament_name TEXT,
+    court_id TEXT,
+    court_name TEXT NOT NULL,
+    date_time TEXT NOT NULL,
+    pair_a_id TEXT NOT NULL,
+    pair_b_id TEXT NOT NULL,
+    pair_a_name TEXT NOT NULL,
+    pair_b_name TEXT NOT NULL,
+    player_a1_id TEXT NOT NULL,
+    player_a2_id TEXT NOT NULL,
+    player_b1_id TEXT NOT NULL,
+    player_b2_id TEXT NOT NULL,
+    player_a1_name TEXT NOT NULL,
+    player_a2_name TEXT NOT NULL,
+    player_b1_name TEXT NOT NULL,
+    player_b2_name TEXT NOT NULL,
+    player_a1_avatar TEXT,
+    player_a2_avatar TEXT,
+    player_b1_avatar TEXT,
+    player_b2_avatar TEXT,
+    status TEXT NOT NULL,
+    sets TEXT,
+    current_game TEXT,
+    current_set_index INTEGER,
+    winner_pair_id TEXT,
+    winner_team TEXT,
+    start_time_ms INTEGER,
+    elapsed_time_sec INTEGER NOT NULL,
+    golden_point INTEGER NOT NULL,
+    sets_to_win INTEGER NOT NULL,
+    round_name TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id VARCHAR(255) PRIMARY KEY,
+    admin_name TEXT NOT NULL,
+    admin_email TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL,
+    details TEXT,
+    timestamp TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id VARCHAR(255) PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT,
+    timestamp TEXT NOT NULL,
+    `read` INTEGER NOT NULL,
+    `type` TEXT NOT NULL,
+    link_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS match_events (
+    id VARCHAR(255) PRIMARY KEY,
+    match_id TEXT NOT NULL,
+    set_number INTEGER NOT NULL,
+    game_number INTEGER NOT NULL,
+    timestamp TEXT NOT NULL,
+    winning_pair_id TEXT NOT NULL,
+    player_id TEXT,
+    player_name TEXT,
+    event_type TEXT NOT NULL,
+    description TEXT,
+    score_snapshot TEXT
+);
+
+CREATE TABLE IF NOT EXISTS gesture_config (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    point_team_a_gesture TEXT NOT NULL,
+    point_team_b_gesture TEXT NOT NULL,
+    undo_gesture TEXT NOT NULL,
+    cooldown_ms INTEGER NOT NULL,
+    min_confidence REAL NOT NULL,
+    required_hold_frames INTEGER NOT NULL,
+    detection_zone TEXT,
+    mode TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS users_auth (
+    id VARCHAR(255) PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    hashed_password TEXT NOT NULL,
+    role TEXT NOT NULL
+);
+"""
+
+
+# ---------------------------------------------------------------------------
+# Seed helpers
+# ---------------------------------------------------------------------------
+def normalize_stats(raw):
+    default = {
+        "pointsWon": 0, "winners": 0, "smashes": 0, "smashesWon": 0, "voleasWon": 0,
+        "bandejas": 0, "viboras": 0, "remates": 0, "netPointsWon": 0, "touches": 0,
+        "shots": 0, "serves": 0, "firstServes": 0, "secondServes": 0, "aces": 0,
+        "doubleFaults": 0, "breakPoints": 0, "breakPointsWon": 0, "recoveries": 0,
+        "globos": 0, "devoluciones": 0, "pointsSaved": 0, "unforcedErrors": 0,
+        "distanceKm": 0, "timePlayedMin": 0, "avgSpeedKmh": 0, "movesCount": 0,
+        "matchesPlayed": 0, "matchesWon": 0, "matchesLost": 0, "setsWon": 0, "setsLost": 0,
+        "gamesWon": 0, "gamesLost": 0,
+    }
+    if not raw:
+        return dict(default)
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = {}
+    out = dict(default)
+    for k in out.keys():
+        if k in raw and raw[k] is not None:
+            out[k] = raw[k]
+    return out
+
 
 def seed_data(conn, data):
     for user in data["players"]:
@@ -200,7 +248,7 @@ def seed_data(conn, data):
             "position": user.get("position"), "dominant_hand": user.get("dominant_hand"),
             "current_pair_id": user.get("current_pair_id"), "points": user.get("points", 0),
             "partner_name": user.get("partner_name"), "phone": user.get("phone"),
-            "stats": json.dumps(user.get("stats", {})),
+            "stats": json.dumps(normalize_stats(user.get("stats"))),
         })
 
     for pair in data["pairs"]:
@@ -328,11 +376,11 @@ def seed_data(conn, data):
 
     for notif in data["notifications"]:
         conn.execute(text("""
-            INSERT INTO notifications (id, title, body, timestamp, read, type, link_id)
+            INSERT INTO notifications (id, title, body, timestamp, `read`, `type`, link_id)
             VALUES (:id, :title, :body, :timestamp, :read, :type, :link_id)
             ON DUPLICATE KEY UPDATE
                 title = VALUES(title), body = VALUES(body), timestamp = VALUES(timestamp),
-                read = VALUES(read), type = VALUES(type), link_id = VALUES(link_id)
+                `read` = VALUES(`read`), `type` = VALUES(`type`), link_id = VALUES(link_id)
         """), {
             "id": notif["id"], "title": notif["title"], "body": notif.get("body"),
             "timestamp": notif["timestamp"], "read": notif.get("read", False),
@@ -385,10 +433,26 @@ def seed_data(conn, data):
         })
 
 
-def init_db():
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    mock_data_path = os.path.join(os.path.dirname(__file__), "mock_data.json")
+    with open(mock_data_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
     with engine.begin() as conn:
-        create_schema(conn)
-        data = load_mock_data()
+        print("[seed] Creating tables if needed...")
+        for stmt in CREATE_TABLES_SQL.split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                conn.execute(text(stmt))
+
+        print("[seed] Loading mock data...")
         seed_data(conn, data)
-    print("[db] Database initialized and seeded successfully.")
-    return engine
+
+    print("[seed] MySQL database initialized and seeded successfully.")
+
+
+if __name__ == "__main__":
+    main()
