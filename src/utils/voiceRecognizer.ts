@@ -24,6 +24,23 @@ export function createVoiceCommandEngine(onCommand: (cmd: VoiceCommand) => void)
   recognition.lang = 'es-ES';
 
   let listening = false;
+  let shouldListen = false;
+  let restartTimer: any = null;
+  let silenceTimer: any = null;
+
+  const scheduleRestart = () => {
+    if (restartTimer) clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+      if (shouldListen && !listening) {
+        try {
+          recognition.start();
+          listening = true;
+        } catch (e) {
+          console.warn('Recognition restart error:', e);
+        }
+      }
+    }, 150);
+  };
 
   recognition.onresult = (event: any) => {
     const last = event.results[event.results.length - 1];
@@ -33,23 +50,36 @@ export function createVoiceCommandEngine(onCommand: (cmd: VoiceCommand) => void)
       if (cmd !== 'NONE') {
         onCommand(cmd);
       }
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        if (shouldListen && listening) {
+          try { recognition.stop(); } catch (e) { /* ignore */ }
+        }
+      }, 10000);
     }
   };
 
   recognition.onerror = (event: any) => {
     console.warn('Speech recognition error:', event.error);
     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      shouldListen = false;
       listening = false;
+    } else {
+      scheduleRestart();
     }
   };
 
   recognition.onend = () => {
     listening = false;
+    if (shouldListen) {
+      scheduleRestart();
+    }
   };
 
   return {
     start() {
       if (listening) return;
+      shouldListen = true;
       try {
         recognition.start();
         listening = true;
@@ -58,6 +88,9 @@ export function createVoiceCommandEngine(onCommand: (cmd: VoiceCommand) => void)
       }
     },
     stop() {
+      shouldListen = false;
+      if (restartTimer) clearTimeout(restartTimer);
+      if (silenceTimer) clearTimeout(silenceTimer);
       if (!listening) return;
       try {
         recognition.stop();
@@ -83,8 +116,8 @@ function normalizeTranscript(text: string): string {
 }
 
 function classifyCommand(text: string): VoiceCommand {
-  if (text === 'grilla' || text === 'grillas') return 'POINT_A';
-  if (text === 'perra' || text === 'perras') return 'POINT_B';
+  if (text === 'local' || text === 'locales') return 'POINT_A';
+  if (text === 'visitante' || text === 'visitantes') return 'POINT_B';
   if (text === 'deshacer' || text === 'desaser' || text === 'desazer') return 'UNDO';
   return 'NONE';
 }

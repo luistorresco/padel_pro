@@ -954,7 +954,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                   Control por Voz
                 </h3>
                 <p className="text-[11px] text-[#c4c9ac]">
-                  Comandos: "grilla" (Pareja A), "perra" (Pareja B), "deshacer"
+                  Comandos: "local" (Pareja A), "visitante" (Pareja B), "deshacer"
                 </p>
               </div>
             </div>
@@ -999,12 +999,12 @@ export const MatchController: React.FC<MatchControllerProps> = ({
               <div className="grid grid-cols-3 gap-2 text-[11px] font-mono-stats text-center">
                 <div className="bg-[#1b1e23] p-2 rounded border border-[#333539] flex flex-col items-center">
                   <span className="text-[16px]">🤘</span>
-                  <span className="text-[#c3f400] font-bold">"Grilla"</span>
+                  <span className="text-[#c3f400] font-bold">"Local"</span>
                   <span className="text-[#8e9379] text-[9px]">Punto Pareja A</span>
                 </div>
                 <div className="bg-[#1b1e23] p-2 rounded border border-[#333539] flex flex-col items-center">
                   <span className="text-[16px]">📞</span>
-                  <span className="text-white font-bold">"Perra"</span>
+                  <span className="text-white font-bold">"Visitante"</span>
                   <span className="text-[#8e9379] text-[9px]">Punto Pareja B</span>
                 </div>
                 <div className="bg-[#1b1e23] p-2 rounded border border-[#333539] flex flex-col items-center">
