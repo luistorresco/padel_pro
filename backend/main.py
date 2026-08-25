@@ -707,6 +707,50 @@ def update_match_court(match_id: str, body: dict, payload: dict = Depends(requir
                      {"cid": court_id, "cname": court_name, "id": match_id})
     return {"message": "Court updated", "court_id": court_id, "court_name": court_name}
 
+@app.post("/api/matches/{match_id}/finish")
+def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_user)):
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
+        if not result.mappings().first():
+            raise HTTPException(status_code=404, detail="Match not found")
+        conn.execute(text("""
+            UPDATE matches SET status = 'FINISHED', winner_team = :winner_team
+            WHERE id = :id
+        """), {
+            "id": match_id,
+            "winner_team": body.get("winner_team"),
+        })
+    if body.get("create_notification") and body.get("notification"):
+        notif = body["notification"]
+        try:
+            api.create_notification(notif)
+        except Exception:
+            pass
+    return {"message": "Match finished", "match_id": match_id, "winner_team": body.get("winner_team")}
+
+@app.post("/api/matches/{match_id}/events")
+def create_match_event(match_id: str, event: dict, payload: dict = Depends(get_current_user)):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO match_events (id, match_id, set_number, game_number, timestamp,
+                winning_pair_id, player_id, player_name, event_type, description, score_snapshot)
+            VALUES (:id, :match_id, :set_number, :game_number, :timestamp,
+                :winning_pair_id, :player_id, :player_name, :event_type, :description, :score_snapshot)
+        """), {
+            "id": event["id"],
+            "match_id": match_id,
+            "set_number": event.get("set_number", 0),
+            "game_number": event.get("game_number", 0),
+            "timestamp": event.get("timestamp", ""),
+            "winning_pair_id": event.get("winning_pair_id"),
+            "player_id": event.get("player_id"),
+            "player_name": event.get("player_name"),
+            "event_type": event.get("event_type", "POINT"),
+            "description": event.get("description"),
+            "score_snapshot": event.get("score_snapshot"),
+        })
+    return event
+
 # ==================== AUDIT LOGS ====================
 
 @app.get("/api/audit-logs")
