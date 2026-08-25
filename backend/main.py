@@ -21,6 +21,46 @@ DEFAULT_STATS = {
     "avgSpeedKmh": 0, "distanceKm": 0,
 }
 
+_CAMEL_TO_SNAKE_MATCH = {
+    "tournamentId": "tournament_id",
+    "tournamentName": "tournament_name",
+    "courtId": "court_id",
+    "courtName": "court_name",
+    "dateTime": "date_time",
+    "pairAId": "pair_a_id",
+    "pairBId": "pair_b_id",
+    "pairAName": "pair_a_name",
+    "pairBName": "pair_b_name",
+    "playerA1Id": "player_a1_id",
+    "playerA2Id": "player_a2_id",
+    "playerB1Id": "player_b1_id",
+    "playerB2Id": "player_b2_id",
+    "playerA1Name": "player_a1_name",
+    "playerA2Name": "player_a2_name",
+    "playerB1Name": "player_b1_name",
+    "playerB2Name": "player_b2_name",
+    "playerA1Avatar": "player_a1_avatar",
+    "playerA2Avatar": "player_a2_avatar",
+    "playerB1Avatar": "player_b1_avatar",
+    "playerB2Avatar": "player_b2_avatar",
+    "currentGame": "current_game",
+    "currentSetIndex": "current_set_index",
+    "winnerPairId": "winner_pair_id",
+    "winnerTeam": "winner_team",
+    "startTimeMs": "start_time_ms",
+    "elapsedTimeSec": "elapsed_time_sec",
+    "goldenPoint": "golden_point",
+    "setsToWin": "sets_to_win",
+    "roundName": "round_name",
+}
+
+def normalize_match_payload(match: dict) -> dict:
+    out = {}
+    for key, value in match.items():
+        snake = _CAMEL_TO_SNAKE_MATCH.get(key, key)
+        out[snake] = value
+    return out
+
 def normalize_stats(raw):
     if not raw:
         return dict(DEFAULT_STATS)
@@ -615,6 +655,7 @@ def get_match(match_id: str):
 
 @app.post("/api/matches")
 def create_match(match: dict, payload: dict = Depends(require_admin)):
+    match = normalize_match_payload(match)
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO matches (id, tournament_id, tournament_name, court_id, court_name, date_time,
@@ -653,6 +694,7 @@ def create_match(match: dict, payload: dict = Depends(require_admin)):
 
 @app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match: dict, payload: dict = Depends(get_current_user)):
+    match = normalize_match_payload(match)
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
         if not result.mappings().first():
@@ -730,6 +772,7 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
 
 @app.post("/api/matches/{match_id}/events")
 def create_match_event(match_id: str, event: dict, payload: dict = Depends(get_current_user)):
+    event = normalize_match_payload(event)
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO match_events (id, match_id, set_number, game_number, timestamp,
