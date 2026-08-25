@@ -665,9 +665,27 @@ def get_match(match_id: str):
 @app.post("/api/matches")
 def create_match(match: dict, payload: dict = Depends(require_admin)):
     match = normalize_match_payload(match)
-    print("[DEBUG] normalized match keys:", sorted(match.keys()))
-    print("[DEBUG] normalized match payload:", match)
     with engine.begin() as conn:
+        pair_a_id = match.get("pair_a_id")
+        pair_b_id = match.get("pair_b_id")
+        if pair_a_id and not match.get("player_a1_id"):
+            row = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_a_id}).mappings().first()
+            if row:
+                match["player_a1_id"] = row.get("player1_id")
+                match["player_a2_id"] = row.get("player2_id")
+                match["player_a1_name"] = row.get("player1_name")
+                match["player_a2_name"] = row.get("player2_name")
+                match["player_a1_avatar"] = row.get("player1_avatar")
+                match["player_a2_avatar"] = row.get("player2_avatar")
+        if pair_b_id and not match.get("player_b1_id"):
+            row = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_b_id}).mappings().first()
+            if row:
+                match["player_b1_id"] = row.get("player1_id")
+                match["player_b2_id"] = row.get("player2_id")
+                match["player_b1_name"] = row.get("player1_name")
+                match["player_b2_name"] = row.get("player2_name")
+                match["player_b1_avatar"] = row.get("player1_avatar")
+                match["player_b2_avatar"] = row.get("player2_avatar")
         conn.execute(text("""
             INSERT INTO matches (id, tournament_id, tournament_name, court_id, court_name, date_time,
                 pair_a_id, pair_b_id, pair_a_name, pair_b_name, player_a1_id, player_a2_id,
@@ -729,16 +747,16 @@ def update_match(match_id: str, match: dict, payload: dict = Depends(get_current
         """), {
             "id": match_id,
             "tournament_id": match.get("tournament_id"), "tournament_name": match.get("tournament_name"),
-            "court_id": match.get("court_id"), "court_name": match["court_name"],
-            "date_time": match["date_time"], "pair_a_id": match["pair_a_id"], "pair_b_id": match["pair_b_id"],
-            "pair_a_name": match["pair_a_name"], "pair_b_name": match["pair_b_name"],
-            "player_a1_id": match["player_a1_id"], "player_a2_id": match["player_a2_id"],
-            "player_b1_id": match["player_b1_id"], "player_b2_id": match["player_b2_id"],
-            "player_a1_name": match["player_a1_name"], "player_a2_name": match["player_a2_name"],
-            "player_b1_name": match["player_b1_name"], "player_b2_name": match["player_b2_name"],
+            "court_id": match.get("court_id"), "court_name": match.get("court_name"),
+            "date_time": match.get("date_time"), "pair_a_id": match.get("pair_a_id"), "pair_b_id": match.get("pair_b_id"),
+            "pair_a_name": match.get("pair_a_name"), "pair_b_name": match.get("pair_b_name"),
+            "player_a1_id": match.get("player_a1_id"), "player_a2_id": match.get("player_a2_id"),
+            "player_b1_id": match.get("player_b1_id"), "player_b2_id": match.get("player_b2_id"),
+            "player_a1_name": match.get("player_a1_name"), "player_a2_name": match.get("player_a2_name"),
+            "player_b1_name": match.get("player_b1_name"), "player_b2_name": match.get("player_b2_name"),
             "player_a1_avatar": match.get("player_a1_avatar"), "player_a2_avatar": match.get("player_a2_avatar"),
             "player_b1_avatar": match.get("player_b1_avatar"), "player_b2_avatar": match.get("player_b2_avatar"),
-            "status": match["status"], "sets": json.dumps(match.get("sets", [])),
+            "status": match.get("status"), "sets": json.dumps(match.get("sets", [])),
             "current_game": json.dumps(match.get("current_game", {})),
             "current_set_index": match.get("current_set_index", 0),
             "winner_pair_id": match.get("winner_pair_id"), "winner_team": match.get("winner_team"),
