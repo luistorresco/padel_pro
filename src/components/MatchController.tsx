@@ -3,6 +3,7 @@ import { Match, MatchEvent, GestureConfiguration, GestureType, RecognizedGesture
 import { awardPoint, replayEventsOnMatch, formatMatchSnapshot, getLastScoringTeam } from '../domain/scoringEngine';
 import { GestureRecognizerEngine, DEFAULT_GESTURE_CONFIG, getGestureLabel } from '../camera/gestureAnalyzer';
 import { audioFx } from '../utils/audioSynthesizer';
+import { createVoiceCommandEngine, VoiceCommandEngine } from '../utils/voiceRecognizer';
 import { getHandLandmarker } from '../camera/mediaPipeDetector';
 import { detectHandFromPixels } from '../camera/pixelVisionAnalyzer';
 
@@ -33,6 +34,12 @@ export const MatchController: React.FC<MatchControllerProps> = ({
   });
   const [showGestureSettings, setShowGestureSettings] = useState<boolean>(false);
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState<boolean | null>(null);
+
+  // Voice Control State
+  const [voiceModeActive, setVoiceModeActive] = useState<boolean>(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<string>('Inactivo');
+  const voiceRecognizerRef = useRef<VoiceCommandEngine | null>(null);
 
   // Edit Mode State ("Modo de edición para corregir errores rápidamente")
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
@@ -165,6 +172,52 @@ export const MatchController: React.FC<MatchControllerProps> = ({
       cameraInitRef.current = false;
     };
   }, [gestureModeActive]);
+
+  // Voice Recognition Effect
+  useEffect(() => {
+    if (!voiceModeActive) {
+      if (voiceRecognizerRef.current) {
+        voiceRecognizerRef.current.stop();
+        voiceRecognizerRef.current = null;
+      }
+      setVoiceStatus('Inactivo');
+      setVoiceError(null);
+      return;
+    }
+
+    const engine = createVoiceCommandEngine((cmd: any) => {
+      switch (cmd) {
+        case 'POINT_A':
+          handleAwardPoint('A', 'POINT');
+          setVoiceStatus('Punto Pareja A');
+          break;
+        case 'POINT_B':
+          handleAwardPoint('B', 'POINT');
+          setVoiceStatus('Punto Pareja B');
+          break;
+        case 'UNDO':
+          handleUndoLastPoint();
+          setVoiceStatus('Deshacer');
+          break;
+      }
+    });
+
+    voiceRecognizerRef.current = engine;
+    setVoiceError(null);
+    setVoiceStatus('Escuchando...');
+
+    try {
+      engine.start();
+    } catch (err: any) {
+      setVoiceError(err.message || 'No se pudo iniciar el reconocimiento de voz');
+      setVoiceStatus('Error');
+    }
+
+    return () => {
+      engine.stop();
+      voiceRecognizerRef.current = null;
+    };
+  }, [voiceModeActive]);
 
   // Landmark analysis loop on video canvas
   const startLandmarkDetectionLoop = () => {
@@ -885,6 +938,79 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                     }}
                     className="w-full accent-[#c3f400]"
                   />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* VOICE CONTROL SECTION */}
+        <div className="bg-[#1e2023] rounded-2xl p-4 border border-[#c3f400]/40 shadow-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#c3f400] text-[24px]">mic</span>
+              <div>
+                <h3 className="font-headline font-bold text-[16px] text-white">
+                  Control por Voz
+                </h3>
+                <p className="text-[11px] text-[#c4c9ac]">
+                  Comandos: "grilla" (Pareja A), "perra" (Pareja B), "deshacer"
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setVoiceModeActive(!voiceModeActive)}
+              className={`px-4 py-2 rounded-xl font-mono-stats text-[12px] font-bold flex items-center gap-1.5 transition-all shadow-md ${
+                voiceModeActive
+                  ? 'bg-[#FF3B30] text-white animate-pulse'
+                  : 'bg-[#c3f400] text-[#161e00] hover:bg-[#abd600]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {voiceModeActive ? 'mic_off' : 'mic'}
+              </span>
+              <span>{voiceModeActive ? 'DETENER VOZ' : 'ACTIVAR VOZ'}</span>
+            </button>
+          </div>
+
+          {voiceModeActive && (
+            <div className="flex flex-col gap-3 bg-[#0c0e12] rounded-xl p-3.5 border border-[#333539]">
+              <div className="bg-[#1e2023]/80 border border-[#c3f400]/30 p-2 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[12px] font-mono-stats font-bold text-[#c3f400]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#c3f400] pulse-animation" />
+                  <span>🎤 ESCUCHANDO COMANDOS DE VOZ</span>
+                </div>
+                <span className="text-[11px] font-mono-stats text-[#c4c9ac]">
+                  {voiceStatus}
+                </span>
+              </div>
+
+              {voiceError && (
+                <div className="bg-red-900/40 border border-red-500/50 p-3 rounded-xl text-red-200 text-[12px] font-mono-stats">
+                  <div className="flex items-center gap-2 font-bold">
+                    <span className="material-symbols-outlined text-[18px]">warning</span>
+                    <span>Micrófono no disponible</span>
+                  </div>
+                  <p className="mt-1">{voiceError}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-2 text-[11px] font-mono-stats text-center">
+                <div className="bg-[#1b1e23] p-2 rounded border border-[#333539] flex flex-col items-center">
+                  <span className="text-[16px]">🤘</span>
+                  <span className="text-[#c3f400] font-bold">"Grilla"</span>
+                  <span className="text-[#8e9379] text-[9px]">Punto Pareja A</span>
+                </div>
+                <div className="bg-[#1b1e23] p-2 rounded border border-[#333539] flex flex-col items-center">
+                  <span className="text-[16px]">📞</span>
+                  <span className="text-white font-bold">"Perra"</span>
+                  <span className="text-[#8e9379] text-[9px]">Punto Pareja B</span>
+                </div>
+                <div className="bg-[#1b1e23] p-2 rounded border border-[#333539] flex flex-col items-center">
+                  <span className="text-[16px]">👎</span>
+                  <span className="text-[#ffdad6] font-bold">"Deshacer"</span>
+                  <span className="text-[#8e9379] text-[9px]">Undo último punto</span>
                 </div>
               </div>
             </div>
