@@ -21,6 +21,8 @@ DEFAULT_STATS = {
     "avgSpeedKmh": 0, "distanceKm": 0,
 }
 
+import re
+
 _CAMEL_TO_SNAKE_MATCH = {
     "tournamentId": "tournament_id",
     "tournamentName": "tournament_name",
@@ -54,10 +56,17 @@ _CAMEL_TO_SNAKE_MATCH = {
     "roundName": "round_name",
 }
 
+_CAMEL_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
+
+def _camel_to_snake(key: str) -> str:
+    return _CAMEL_PATTERN.sub("_", key).lower()
+
 def normalize_match_payload(match: dict) -> dict:
     out = {}
     for key, value in match.items():
-        snake = _CAMEL_TO_SNAKE_MATCH.get(key, key)
+        snake = _CAMEL_TO_SNAKE_MATCH.get(key)
+        if snake is None:
+            snake = _camel_to_snake(key)
         out[snake] = value
     return out
 
@@ -656,6 +665,8 @@ def get_match(match_id: str):
 @app.post("/api/matches")
 def create_match(match: dict, payload: dict = Depends(require_admin)):
     match = normalize_match_payload(match)
+    print("[DEBUG] normalized match keys:", sorted(match.keys()))
+    print("[DEBUG] normalized match payload:", match)
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO matches (id, tournament_id, tournament_name, court_id, court_name, date_time,
@@ -673,13 +684,13 @@ def create_match(match: dict, payload: dict = Depends(require_admin)):
         """), {
             "id": match["id"], "tournament_id": match.get("tournament_id"),
             "tournament_name": match.get("tournament_name"), "court_id": match.get("court_id"),
-            "court_name": match["court_name"], "date_time": match["date_time"],
-            "pair_a_id": match["pair_a_id"], "pair_b_id": match["pair_b_id"],
-            "pair_a_name": match["pair_a_name"], "pair_b_name": match["pair_b_name"],
-            "player_a1_id": match["player_a1_id"], "player_a2_id": match["player_a2_id"],
-            "player_b1_id": match["player_b1_id"], "player_b2_id": match["player_b2_id"],
-            "player_a1_name": match["player_a1_name"], "player_a2_name": match["player_a2_name"],
-            "player_b1_name": match["player_b1_name"], "player_b2_name": match["player_b2_name"],
+            "court_name": match.get("court_name"), "date_time": match.get("date_time"),
+            "pair_a_id": match.get("pair_a_id"), "pair_b_id": match.get("pair_b_id"),
+            "pair_a_name": match.get("pair_a_name"), "pair_b_name": match.get("pair_b_name"),
+            "player_a1_id": match.get("player_a1_id"), "player_a2_id": match.get("player_a2_id"),
+            "player_b1_id": match.get("player_b1_id"), "player_b2_id": match.get("player_b2_id"),
+            "player_a1_name": match.get("player_a1_name"), "player_a2_name": match.get("player_a2_name"),
+            "player_b1_name": match.get("player_b1_name"), "player_b2_name": match.get("player_b2_name"),
             "player_a1_avatar": match.get("player_a1_avatar"), "player_a2_avatar": match.get("player_a2_avatar"),
             "player_b1_avatar": match.get("player_b1_avatar"), "player_b2_avatar": match.get("player_b2_avatar"),
             "status": match.get("status", "UPCOMING"), "sets": json.dumps(match.get("sets", [])),
