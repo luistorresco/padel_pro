@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { User, Tournament, Match, Court, AuditLog, PlayerStats } from '../types';
+import { User, Pair, Tournament, Match, Court, AuditLog, PlayerStats } from '../types';
 
 interface AdminDashboardViewProps {
   players: User[];
+  pairs: Pair[];
   tournaments: Tournament[];
   matches: Match[];
   courts: Court[];
@@ -55,6 +56,7 @@ const emptyStats: PlayerStats = {
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   players,
+  pairs,
   tournaments,
   matches,
   courts,
@@ -76,6 +78,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [editTournamentStart, setEditTournamentStart] = useState<string>('');
   const [editTournamentEnd, setEditTournamentEnd] = useState<string>('');
   const [selectedTournamentForUsers, setSelectedTournamentForUsers] = useState<string | null>(null);
+  const [selectedTournamentForPairs, setSelectedTournamentForPairs] = useState<string | null>(null);
+  const [selectedPairForTournament, setSelectedPairForTournament] = useState<string>('');
+  const [selectedCourtForTournament, setSelectedCourtForTournament] = useState<string>('');
+  const [tournamentDateTime, setTournamentDateTime] = useState<string>('');
+  const [editingTournamentCourt, setEditingTournamentCourt] = useState<string | null>(null);
+  const [editTournamentCourtId, setEditTournamentCourtId] = useState<string>('');
+  const [editingTournamentDateTime, setEditingTournamentDateTime] = useState<string | null>(null);
+  const [editTournamentDateTime, setEditTournamentDateTime] = useState<string>('');
 
   const [newUserName, setNewUserName] = useState<string>('');
   const [newUserSurname, setNewUserSurname] = useState<string>('');
@@ -463,6 +473,87 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       📅 Programar fechas
                     </button>
 
+                    {selectedTournamentForPairs === t.id ? (
+                      <div className="flex flex-col gap-1.5 w-full mt-1">
+                        <label className="text-[10px] text-[#8e9379]">Pareja</label>
+                        <select
+                          value={selectedPairForTournament}
+                          onChange={(e) => setSelectedPairForTournament(e.target.value)}
+                          className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                        >
+                          <option value="">Seleccionar pareja...</option>
+                          {pairs
+                            .filter((p) => !t.registeredPairIds.includes(p.id))
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                        </select>
+
+                        <label className="text-[10px] text-[#8e9379]">Pista</label>
+                        <select
+                          value={selectedCourtForTournament}
+                          onChange={(e) => setSelectedCourtForTournament(e.target.value)}
+                          className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                        >
+                          <option value="">Sin pista</option>
+                          {courts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({c.status})
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="text-[10px] text-[#8e9379]">Fecha/hora del partido</label>
+                        <input
+                          type="datetime-local"
+                          value={tournamentDateTime}
+                          onChange={(e) => setTournamentDateTime(e.target.value)}
+                          className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                        />
+
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              if (!selectedPairForTournament) return;
+                              onUpdateTournament(t.id, {
+                                registeredPairIds: [...t.registeredPairIds, selectedPairForTournament],
+                                courtIds: selectedCourtForTournament && !t.courtIds.includes(selectedCourtForTournament) ? [...t.courtIds, selectedCourtForTournament] : t.courtIds,
+                                startDate: tournamentDateTime || t.startDate,
+                                endDate: tournamentDateTime || t.endDate,
+                              });
+                              setSelectedTournamentForPairs(null);
+                              setSelectedPairForTournament('');
+                              setSelectedCourtForTournament('');
+                              setTournamentDateTime('');
+                            }}
+                            className="bg-[#c3f400] text-[#161e00] px-2 py-1 rounded text-[11px] font-bold flex-1"
+                          >
+                            Guardar inscripción
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedTournamentForPairs(null);
+                              setSelectedPairForTournament('');
+                              setSelectedCourtForTournament('');
+                              setTournamentDateTime('');
+                            }}
+                            className="bg-[#333539] text-white px-2 py-1 rounded text-[11px] flex-1"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedTournamentForPairs(t.id)}
+                        className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
+                      >
+                        🏟️ Asignar pista
+                      </button>
+                    )}
+
                     {selectedTournamentForUsers === t.id ? (
                       <div className="flex flex-col gap-1.5 w-full mt-1">
                         <select
@@ -499,6 +590,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         👤 Inscribir jugadores
                       </button>
                     )}
+                  </div>
+                )}
+
+                {(t.courtIds || []).length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {t.courtIds.map((cid) => {
+                      const court = courts.find((c) => c.id === cid);
+                      if (!court) return null;
+                      return (
+                        <span key={cid} className="bg-[#333539] text-white px-2 py-0.5 rounded text-[10px]">
+                          🏟️ {court.name}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
 

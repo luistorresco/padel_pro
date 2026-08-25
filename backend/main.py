@@ -503,6 +503,41 @@ def register_user(tournament_id: str, body: dict, payload: dict = Depends(requir
                      {"ru": json.dumps(current), "id": tournament_id})
     return {"message": "User registered", "registered_user_ids": current}
 
+@app.post("/api/tournaments/{tournament_id}/register")
+def register_pair(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
+    pair_id = body.get("pair_id")
+    court_id = body.get("court_id")
+    date_time = body.get("date_time")
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT * FROM tournaments WHERE id = :id"), {"id": tournament_id})
+        row = result.mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        tournament = dict(row)
+        registered_pair_ids = json.loads(tournament.get("registered_pair_ids") or "[]")
+        if pair_id not in registered_pair_ids:
+            registered_pair_ids.append(pair_id)
+
+        court_ids = json.loads(tournament.get("court_ids") or "[]")
+        if court_id and court_id not in court_ids:
+            court_ids.append(court_id)
+
+        conn.execute(text("""
+            UPDATE tournaments SET
+                registered_pair_ids = :rp,
+                court_ids = :cids,
+                start_date = :start_date,
+                end_date = :end_date
+            WHERE id = :id
+        """), {
+            "rp": json.dumps(registered_pair_ids),
+            "cids": json.dumps(court_ids),
+            "start_date": date_time or tournament.get("start_date"),
+            "end_date": date_time or tournament.get("end_date"),
+            "id": tournament_id,
+        })
+    return {"message": "Pair registered", "registered_pair_ids": registered_pair_ids, "court_ids": court_ids}
+
 @app.delete("/api/tournaments/{tournament_id}")
 def delete_tournament(tournament_id: str, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
@@ -512,21 +547,6 @@ def delete_tournament(tournament_id: str, payload: dict = Depends(require_admin)
         conn.execute(text("DELETE FROM matches WHERE tournament_id = :tid"), {"tid": tournament_id})
         conn.execute(text("DELETE FROM tournaments WHERE id = :tid"), {"tid": tournament_id})
     return {"message": "Tournament deleted"}
-
-@app.post("/api/tournaments/{tournament_id}/register")
-def register_pair(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
-    pair_id = body.get("pair_id")
-    with engine.begin() as conn:
-        result = conn.execute(text("SELECT registered_pair_ids FROM tournaments WHERE id = :id"), {"id": tournament_id})
-        row = result.mappings().first()
-        if not row:
-            raise HTTPException(status_code=404, detail="Tournament not found")
-        current = json.loads(row["registered_pair_ids"] or "[]")
-        if pair_id not in current:
-            current.append(pair_id)
-        conn.execute(text("UPDATE tournaments SET registered_pair_ids = :rp WHERE id = :id"),
-                     {"rp": json.dumps(current), "id": tournament_id})
-    return {"message": "Pair registered", "registered_pair_ids": current}
 
 # ==================== COURTS ====================
 

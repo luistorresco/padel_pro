@@ -477,20 +477,16 @@ export default function App() {
     });
   };
 
-  const handleRegisterPair = async (tournamentId: string, pairId: string) => {
+  const handleRegisterPairForTournament = async (tournamentId: string, pairId: string, courtId: string, dateTime: string) => {
     setTournaments((prev) =>
       prev.map((t) => {
-        if (t.id === tournamentId && !t.registeredPairIds.includes(pairId)) {
-          return { ...t, registeredPairIds: [...t.registeredPairIds, pairId] };
-        }
-        return t;
+        if (t.id !== tournamentId) return t;
+        const registeredPairIds = t.registeredPairIds.includes(pairId) ? t.registeredPairIds : [...t.registeredPairIds, pairId];
+        const courtIds = courtId && !t.courtIds.includes(courtId) ? [...t.courtIds, courtId] : t.courtIds;
+        return { ...t, registeredPairIds, courtIds };
       })
     );
-    alert('¡Pareja inscrita correctamente en el torneo!');
-
-    api.registerPair(tournamentId, pairId).catch((error) => {
-      console.error('[App] Failed to register pair via API.', error);
-    });
+    await api.registerPairForTournament(tournamentId, pairId, courtId, dateTime);
   };
 
   const handleCreatePair = async (newPair: Pair) => {
@@ -802,10 +798,11 @@ export default function App() {
                 <TournamentsView
                   tournaments={tournaments}
                   pairs={pairs}
+                  courts={courts}
                   matches={matches}
                   role={role}
                   onCreateTournament={handleCreateTournament}
-                  onRegisterPair={handleRegisterPair}
+                  onRegisterPair={handleRegisterPairForTournament}
                   onDeleteTournament={handleDeleteTournament}
                   onOpenMatch={(id) => {
                     setSelectedMatchId(id);
@@ -879,6 +876,7 @@ export default function App() {
               {activeTab === 'admin' && (
                 <AdminDashboardView
                   players={players}
+                  pairs={pairs}
                   tournaments={tournaments}
                   matches={matches}
                   courts={courts}

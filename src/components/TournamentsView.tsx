@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Tournament, Pair, UserRole, Match } from '../types';
+import { Tournament, Pair, UserRole, Match, Court } from '../types';
 
 interface TournamentsViewProps {
   tournaments: Tournament[];
   pairs: Pair[];
+  courts: Court[];
   matches?: Match[];
   role: UserRole;
   onCreateTournament: (newTour: Tournament) => void;
-  onRegisterPair: (tournamentId: string, pairId: string) => void;
+  onRegisterPair: (tournamentId: string, pairId: string, courtId: string, dateTime: string) => void;
   onDeleteTournament?: (tourId: string) => void;
   onOpenMatch?: (matchId: string) => void;
 }
@@ -15,6 +16,7 @@ interface TournamentsViewProps {
 export const TournamentsView: React.FC<TournamentsViewProps> = ({
   tournaments,
   pairs,
+  courts,
   matches = [],
   role,
   onCreateTournament,
@@ -27,6 +29,10 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [registeringTournamentId, setRegisteringTournamentId] = useState<string | null>(null);
+  const [registerPairId, setRegisterPairId] = useState<string>('');
+  const [registerCourtId, setRegisterCourtId] = useState<string>('');
+  const [registerDateTime, setRegisterDateTime] = useState<string>('');
 
   // New Tournament Form
   const [newTourName, setNewTourName] = useState<string>('');
@@ -196,13 +202,72 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
 
                 {tour.status === 'REGISTRATION' && pairs.length > 0 && (
                   <button
-                    onClick={() => {
-                      if (pairs[0]) onRegisterPair(tour.id, pairs[0].id);
-                    }}
+                    onClick={() => setRegisteringTournamentId(tour.id)}
                     className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] font-mono-stats text-[12px] font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1"
                   >
                     <span>Inscribir Mi Pareja</span>
                   </button>
+                )}
+
+                {registeringTournamentId === tour.id && (
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    <select
+                      value={registerPairId}
+                      onChange={(e) => setRegisterPairId(e.target.value)}
+                      className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                    >
+                      <option value="">Seleccionar pareja...</option>
+                      {pairs
+                        .filter((p) => !tour.registeredPairIds.includes(p.id))
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      value={registerCourtId}
+                      onChange={(e) => setRegisterCourtId(e.target.value)}
+                      className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                    >
+                      <option value="">Sin pista</option>
+                      {courts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.status})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={registerDateTime}
+                      onChange={(e) => setRegisterDateTime(e.target.value)}
+                      className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!registerPairId) return;
+                        onRegisterPair(tour.id, registerPairId, registerCourtId, registerDateTime);
+                        setRegisteringTournamentId(null);
+                        setRegisterPairId('');
+                        setRegisterCourtId('');
+                        setRegisterDateTime('');
+                      }}
+                      className="bg-[#c3f400] text-[#161e00] px-2 py-1 rounded text-[11px] font-bold"
+                    >
+                      Confirmar inscripción
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRegisteringTournamentId(null);
+                        setRegisterPairId('');
+                        setRegisterCourtId('');
+                        setRegisterDateTime('');
+                      }}
+                      className="bg-[#333539] text-white px-2 py-1 rounded text-[11px]"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 )}
 
                 {role === 'ADMIN' && onDeleteTournament && (

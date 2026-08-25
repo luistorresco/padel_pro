@@ -82,6 +82,11 @@ export const api = {
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ pair_id: pairId }),
   }).then(handleResponse),
+  registerPairForTournament: (tournamentId: string, pairId: string, courtId: string, dateTime: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/register`, {
+    method: 'POST',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ pair_id: pairId, court_id: courtId, date_time: dateTime }),
+  }).then(handleResponse),
   registerUser: (tournamentId: string, userId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/register_user`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
