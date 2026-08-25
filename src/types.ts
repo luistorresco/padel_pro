@@ -185,6 +185,7 @@ export interface Match {
   goldenPoint: boolean;
   setsToWin: number;
   roundName?: string;
+  pointHistory?: Array<{ team: 'A' | 'B'; timestamp: string }>;
 }
 
 export type MatchEventType = 

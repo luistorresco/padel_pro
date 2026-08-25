@@ -434,7 +434,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <div className="text-[11px] text-[#c4c9ac]">
                   <div>📍 {t.location}</div>
                   <div>📅 {t.startDate} → {t.endDate}</div>
-                  <div>👥 {t.registeredUserIds.length} jugadores / {t.registeredPairIds.length} parejas</div>
+                  <div>👥 {(t.registeredUserIds || []).length} jugadores / {(t.registeredPairIds || []).length} parejas</div>
                 </div>
 
                 {editingTournamentId === t.id ? (
@@ -628,9 +628,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
                 )}
 
-                {t.registeredUserIds.length > 0 && (
+                {(t.registeredUserIds || []).length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {t.registeredUserIds.map((uid) => {
+                    {(t.registeredUserIds || []).map((uid) => {
                       const player = players.find((p) => p.id === uid);
                       if (!player) return null;
                       return (

@@ -405,7 +405,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#333539]">
-                    {selectedTournament.registeredPairIds.map((pId, idx) => {
+                    {(selectedTournament.registeredPairIds || []).map((pId, idx) => {
                       const p = pairs.find((pair) => pair.id === pId);
                       return (
                         <tr key={pId} className="hover:bg-[#282a2e]/50">

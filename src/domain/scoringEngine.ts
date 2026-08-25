@@ -180,6 +180,11 @@ export function awardPoint(
     scoreSnapshot: scoreDesc,
   };
 
+  if (!match.pointHistory) {
+    match.pointHistory = [];
+  }
+  match.pointHistory.push({ team, timestamp: event.timestamp });
+
   return { updatedMatch: match, event };
 }
 
@@ -207,21 +212,27 @@ export function formatMatchSnapshot(match: Match): string {
  * Recalculate match state from scratch by replaying events (for perfect Undo and integrity)
  */
 export function replayEventsOnMatch(initialMatch: Match, events: MatchEvent[]): Match {
-  // Start with fresh match clone reset to 0-0
   const cleanMatch: Match = JSON.parse(JSON.stringify(initialMatch));
   cleanMatch.status = 'LIVE';
   cleanMatch.currentSetIndex = 0;
   cleanMatch.sets = [createInitialSetScore()];
   cleanMatch.currentGame = createInitialGameScore('A');
   cleanMatch.winnerPairId = undefined;
+  cleanMatch.pointHistory = [];
 
   let current = cleanMatch;
-  for (const ev of events) {
+  const chronologicalEvents = [...events].reverse();
+  for (const ev of chronologicalEvents) {
     if (ev.eventType === 'CORRECTION_UNDO') continue;
     const result = awardPoint(current, ev.winningPairId, ev.eventType, ev.playerId, ev.playerName);
     current = result.updatedMatch;
   }
   return current;
+}
+
+export function getLastScoringTeam(match: Match): 'A' | 'B' | null {
+  if (!match.pointHistory || match.pointHistory.length === 0) return null;
+  return match.pointHistory[match.pointHistory.length - 1].team;
 }
 
 /**
@@ -313,6 +324,26 @@ export function runPadelScoringUnitTests(): { passed: number; total: number; log
 
     mTB = awardPoint(mTB, 'A').updatedMatch;
     assert(mTB.sets[0].winner === 'A', '12. Win Tie-break 8-6 -> Set won by Team A');
+
+    // Test 5: Point history and undo
+    let mHist = JSON.parse(JSON.stringify(baseMatch));
+    const evts: MatchEvent[] = [];
+    let r = awardPoint(mHist, 'A');
+    evts.push(r.event);
+    mHist = r.updatedMatch;
+    r = awardPoint(mHist, 'B');
+    evts.push(r.event);
+    mHist = r.updatedMatch;
+    r = awardPoint(mHist, 'A');
+    evts.push(r.event);
+    mHist = r.updatedMatch;
+
+    assert(mHist.pointHistory?.length === 3, '13. Point history has 3 entries');
+    assert(getLastScoringTeam(mHist) === 'A', '14. Last scoring team is A');
+
+    const replayed = replayEventsOnMatch(baseMatch, evts.slice(1));
+    assert(getLastScoringTeam(replayed) === 'B', '15. After undo, last scoring team is B');
+    assert(replayed.pointHistory?.length === 2, '16. After undo, point history has 2 entries');
 
   } catch (err: any) {
     logs.push(`⚠️ ERROR DURING TESTS: ${err.message}`);

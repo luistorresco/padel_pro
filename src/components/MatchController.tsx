@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Match, MatchEvent, GestureConfiguration, GestureType, RecognizedGestureState } from '../types';
-import { awardPoint, replayEventsOnMatch, formatMatchSnapshot } from '../domain/scoringEngine';
+import { awardPoint, replayEventsOnMatch, formatMatchSnapshot, getLastScoringTeam } from '../domain/scoringEngine';
 import { GestureRecognizerEngine, DEFAULT_GESTURE_CONFIG, getGestureLabel } from '../camera/gestureAnalyzer';
 import { audioFx } from '../utils/audioSynthesizer';
 import { getHandLandmarker } from '../camera/mediaPipeDetector';
@@ -506,52 +506,68 @@ export const MatchController: React.FC<MatchControllerProps> = ({
             </div>
           </div>
 
-          {/* Score Displays: Games in Sets & Current Point */}
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            {/* Team A Points Display */}
-            <div className="bg-[#0c0e12] rounded-xl p-4 text-center border border-[#333539] flex flex-col items-center justify-center">
-              <span className="font-mono-stats text-[11px] text-[#c4c9ac] mb-1">PUNTOS PAREJA A</span>
-              <div className="font-display-score text-[64px] leading-none text-[#c3f400]">
-                {match.currentGame?.teamAPoints ?? '-'}
-              </div>
+           {/* Score Displays: Games in Sets & Current Point */}
+           <div className="mt-4 grid grid-cols-2 gap-4">
+             {/* Team A Points Display */}
+             <div className="bg-[#0c0e12] rounded-xl p-4 text-center border border-[#333539] flex flex-col items-center justify-center">
+               <span className="font-mono-stats text-[11px] text-[#c4c9ac] mb-1">PUNTOS PAREJA A</span>
+               <div className="font-display-score text-[64px] leading-none text-[#c3f400]">
+                 {match.currentGame?.teamAPoints ?? '-'}
+               </div>
 
-              {/* Set Games summary for Team A */}
-              <div className="flex gap-2 mt-3 font-mono-stats text-[14px]">
-                {(match.sets || []).map((s, idx) => (
-                  <span
-                    key={idx}
-                    className={`px-2 py-0.5 rounded font-bold ${
-                      idx === match.currentSetIndex ? 'bg-[#c3f400] text-[#161e00]' : 'bg-[#282a2e] text-white'
-                    }`}
-                  >
-                    S{idx + 1}: {s.teamAGames}
-                  </span>
-                ))}
-              </div>
-            </div>
+               <div className="mt-2 text-[10px] font-mono-stats font-bold uppercase tracking-wider">
+                 {getLastScoringTeam(match) === 'A' ? (
+                   <span className="text-[#c3f400]">⚡ Último punto: Pareja A</span>
+                 ) : (
+                   <span className="text-[#8e9379]">Último punto: —</span>
+                 )}
+               </div>
 
-            {/* Team B Points Display */}
-            <div className="bg-[#0c0e12] rounded-xl p-4 text-center border border-[#333539] flex flex-col items-center justify-center">
-              <span className="font-mono-stats text-[11px] text-[#c4c9ac] mb-1">PUNTOS PAREJA B</span>
-              <div className="font-display-score text-[64px] leading-none text-white">
-                {match.currentGame?.teamBPoints ?? '-'}
-              </div>
+               {/* Set Games summary for Team A */}
+               <div className="flex gap-2 mt-3 font-mono-stats text-[14px]">
+                 {(match.sets || []).map((s, idx) => (
+                   <span
+                     key={idx}
+                     className={`px-2 py-0.5 rounded font-bold ${
+                       idx === match.currentSetIndex ? 'bg-[#c3f400] text-[#161e00]' : 'bg-[#282a2e] text-white'
+                     }`}
+                   >
+                     S{idx + 1}: {s.teamAGames}
+                   </span>
+                 ))}
+               </div>
+             </div>
 
-              {/* Set Games summary for Team B */}
-              <div className="flex gap-2 mt-3 font-mono-stats text-[14px]">
-                {(match.sets || []).map((s, idx) => (
-                  <span
-                    key={idx}
-                    className={`px-2 py-0.5 rounded font-bold ${
-                      idx === match.currentSetIndex ? 'bg-[#c3f400] text-[#161e00]' : 'bg-[#282a2e] text-white'
-                    }`}
-                  >
-                    S{idx + 1}: {s.teamBGames}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
+             {/* Team B Points Display */}
+             <div className="bg-[#0c0e12] rounded-xl p-4 text-center border border-[#333539] flex flex-col items-center justify-center">
+               <span className="font-mono-stats text-[11px] text-[#c4c9ac] mb-1">PUNTOS PAREJA B</span>
+               <div className="font-display-score text-[64px] leading-none text-white">
+                 {match.currentGame?.teamBPoints ?? '-'}
+               </div>
+
+               <div className="mt-2 text-[10px] font-mono-stats font-bold uppercase tracking-wider">
+                 {getLastScoringTeam(match) === 'B' ? (
+                   <span className="text-white">⚡ Último punto: Pareja B</span>
+                 ) : (
+                   <span className="text-[#8e9379]">Último punto: —</span>
+                 )}
+               </div>
+
+               {/* Set Games summary for Team B */}
+               <div className="flex gap-2 mt-3 font-mono-stats text-[14px]">
+                 {(match.sets || []).map((s, idx) => (
+                   <span
+                     key={idx}
+                     className={`px-2 py-0.5 rounded font-bold ${
+                       idx === match.currentSetIndex ? 'bg-[#c3f400] text-[#161e00]' : 'bg-[#282a2e] text-white'
+                     }`}
+                   >
+                     S{idx + 1}: {s.teamBGames}
+                   </span>
+                 ))}
+               </div>
+             </div>
+           </div>
 
           {/* Quick Manual Score Buttons */}
           <div className="mt-5 grid grid-cols-2 gap-3">
