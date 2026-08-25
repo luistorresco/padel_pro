@@ -85,6 +85,10 @@ def create_schema(conn):
         )
     """))
     conn.execute(text("""
+        ALTER TABLE tournaments
+        ADD COLUMN IF NOT EXISTS registered_user_ids TEXT
+    """))
+    conn.execute(text("""
         CREATE TABLE IF NOT EXISTS matches (
             id VARCHAR(255) PRIMARY KEY,
             tournament_id TEXT,
