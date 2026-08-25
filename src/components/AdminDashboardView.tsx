@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Pair, Tournament, Match, Court, AuditLog, PlayerStats } from '../types';
+import { User, Pair, Tournament, Match, Court, AuditLog, PlayerStats, UserRole } from '../types';
 
 interface AdminDashboardViewProps {
   players: User[];
@@ -8,10 +8,12 @@ interface AdminDashboardViewProps {
   matches: Match[];
   courts: Court[];
   auditLogs: AuditLog[];
+  role: UserRole;
   onUpdateMatchCourt: (matchId: string, courtId: string, courtName: string) => void;
   onUpdateMatchDateTime: (matchId: string, dateTime: string) => void;
   onUpdateTournament: (tournamentId: string, updates: Record<string, unknown>) => void;
   onRegisterUserForTournament: (tournamentId: string, userId: string) => void;
+  onCreateMatch: (match: Match) => void;
   onRunUnitTests: () => void;
   onCreateUser: (user: User) => void;
   onDeleteUser: (userId: string) => void;
@@ -61,10 +63,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   matches,
   courts,
   auditLogs,
+  role,
   onUpdateMatchCourt,
   onUpdateMatchDateTime,
   onUpdateTournament,
   onRegisterUserForTournament,
+  onCreateMatch,
   onRunUnitTests,
   onCreateUser,
   onDeleteUser,
@@ -79,6 +83,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [editTournamentEnd, setEditTournamentEnd] = useState<string>('');
   const [selectedTournamentForUsers, setSelectedTournamentForUsers] = useState<string | null>(null);
   const [selectedTournamentForPairs, setSelectedTournamentForPairs] = useState<string | null>(null);
+  const [showCreateMatchModal, setShowCreateMatchModal] = useState<boolean>(false);
+  const [newMatchPairA, setNewMatchPairA] = useState<string>('');
+  const [newMatchPairB, setNewMatchPairB] = useState<string>('');
+  const [newMatchCourt, setNewMatchCourt] = useState<string>('');
+  const [newMatchDateTime, setNewMatchDateTime] = useState<string>('');
+  const [newMatchTournament, setNewMatchTournament] = useState<string>('');
+  const [newMatchRound, setNewMatchRound] = useState<string>('');
   const [selectedPairForTournament, setSelectedPairForTournament] = useState<string>('');
   const [selectedCourtForTournament, setSelectedCourtForTournament] = useState<string>('');
   const [tournamentDateTime, setTournamentDateTime] = useState<string>('');
@@ -287,17 +298,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           setEditingMatchId(m.id);
                         }}
                         className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
-                      >
-                        📅 Programar fecha/hora
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+                       >
+                         📅 Programar fecha/hora
+                       </button>
+                     )}
+                   </div>
+                 </div>
+               ))}
+             </div>
+
+             {role === 'ADMIN' && (
+               <button
+                 onClick={() => setShowCreateMatchModal(true)}
+                 className="bg-[#c3f400] text-[#161e00] font-headline font-bold text-[12px] py-2 px-3.5 rounded-lg flex items-center gap-1 hover:bg-[#abd600] transition-all active:scale-95 shadow-md"
+               >
+                 <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                 <span>Crear Partido</span>
+               </button>
+             )}
+           </div>
+         </div>
+       )}
 
       {/* Users Management */}
       {adminTab === 'USUARIOS' && (
@@ -824,6 +845,179 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Create Match Modal */}
+      {showCreateMatchModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newMatchPairA || !newMatchPairB || !newMatchCourt || !newMatchDateTime) return;
+              const pairA = pairs.find((p) => p.id === newMatchPairA);
+              const pairB = pairs.find((p) => p.id === newMatchPairB);
+              const court = courts.find((c) => c.id === newMatchCourt);
+              if (!pairA || !pairB || !court) return;
+
+              const newMatch: Match = {
+                id: 'match_' + Date.now(),
+                tournamentId: newMatchTournament || undefined,
+                tournamentName: newMatchTournament ? tournaments.find((t) => t.id === newMatchTournament)?.name : undefined,
+                courtId: court.id,
+                courtName: court.name,
+                dateTime: newMatchDateTime,
+                pairAId: pairA.id,
+                pairBId: pairB.id,
+                pairAName: pairA.name,
+                pairBName: pairB.name,
+                playerA1Id: pairA.player1Id,
+                playerA2Id: pairA.player2Id,
+                playerB1Id: pairB.player1Id,
+                playerB2Id: pairB.player2Id,
+                playerA1Name: pairA.player1Name,
+                playerA2Name: pairA.player2Name,
+                playerB1Name: pairB.player1Name,
+                playerB2Name: pairB.player2Name,
+                playerA1Avatar: pairA.player1Avatar,
+                playerA2Avatar: pairA.player2Avatar,
+                playerB1Avatar: pairB.player1Avatar,
+                playerB2Avatar: pairB.player2Avatar,
+                status: 'UPCOMING',
+                sets: [],
+                currentGame: { teamAPoints: '0', teamBPoints: '0', serverTeam: 'A', isDeuce: false },
+                currentSetIndex: 0,
+                winnerPairId: undefined,
+                winnerTeam: undefined,
+                startTimeMs: undefined,
+                elapsedTimeSec: 0,
+                goldenPoint: false,
+                setsToWin: 2,
+                roundName: newMatchRound || undefined,
+              };
+
+              onCreateMatch(newMatch);
+              setShowCreateMatchModal(false);
+              setNewMatchPairA('');
+              setNewMatchPairB('');
+              setNewMatchCourt('');
+              setNewMatchDateTime('');
+              setNewMatchTournament('');
+              setNewMatchRound('');
+            }}
+            className="bg-[#1e2023] rounded-2xl p-5 border border-[#333539] max-w-md w-full flex flex-col gap-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-[#333539] pb-2">
+              <h3 className="font-headline font-bold text-[18px] text-white">Crear Partido</h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateMatchModal(false)}
+                className="text-[#c4c9ac] hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3 font-mono-stats text-[12px]">
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Pareja A</label>
+                <select
+                  value={newMatchPairA}
+                  onChange={(e: any) => setNewMatchPairA(e.target.value)}
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  required
+                >
+                  <option value="">Seleccionar pareja...</option>
+                  {pairs.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Pareja B</label>
+                <select
+                  value={newMatchPairB}
+                  onChange={(e: any) => setNewMatchPairB(e.target.value)}
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  required
+                >
+                  <option value="">Seleccionar pareja...</option>
+                  {pairs
+                    .filter((p) => p.id !== newMatchPairA)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Pista</label>
+                <select
+                  value={newMatchCourt}
+                  onChange={(e: any) => setNewMatchCourt(e.target.value)}
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  required
+                >
+                  <option value="">Seleccionar pista...</option>
+                  {courts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Fecha y hora</label>
+                <input
+                  type="datetime-local"
+                  value={newMatchDateTime}
+                  onChange={(e) => setNewMatchDateTime(e.target.value)}
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Torneo (opcional)</label>
+                <select
+                  value={newMatchTournament}
+                  onChange={(e: any) => setNewMatchTournament(e.target.value)}
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                >
+                  <option value="">Sin torneo</option>
+                  {tournaments.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Ronda (opcional)</label>
+                <input
+                  type="text"
+                  value={newMatchRound}
+                  onChange={(e) => setNewMatchRound(e.target.value)}
+                  placeholder="Ej: Cuartos de Final"
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="bg-[#c3f400] text-[#161e00] font-headline font-bold text-[14px] py-3 rounded-xl hover:bg-[#abd600] transition-all shadow-md mt-2"
+            >
+              Crear Partido
+            </button>
+          </form>
         </div>
       )}
     </div>

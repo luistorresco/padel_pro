@@ -532,6 +532,18 @@ export default function App() {
     await api.updateMatch(matchId, { dateTime } as unknown as Record<string, unknown>);
   };
 
+  const handleCreateMatch = async (newMatch: Match) => {
+    setMatches((prev) => [newMatch, ...prev]);
+    try {
+      await api.createMatch(newMatch as unknown as Record<string, unknown>);
+      alert('Partido creado correctamente');
+    } catch (error) {
+      console.error('[App] Failed to create match via API.', error);
+      setMatches((prev) => prev.filter((m) => m.id !== newMatch.id));
+      alert('No se pudo crear el partido en el servidor.');
+    }
+  };
+
   const handleUpdateTournament = async (tournamentId: string, updates: Record<string, unknown>) => {
     setTournaments((prev) =>
       prev.map((t) => (t.id === tournamentId ? { ...t, ...updates } : t))
@@ -733,60 +745,57 @@ export default function App() {
                   {nextUpcomingMatch && (
                     <section className="flex flex-col gap-3">
                       <h2 className="font-headline font-bold text-[16px] text-[#c4c9ac] uppercase tracking-wider pl-1">
-                        Mi Próximo Partido
+                        Próximos Partidos
                       </h2>
 
-                      <div
-                        onClick={() => setSelectedMatchId(nextUpcomingMatch.id)}
-                        className="bg-[#1e2023] rounded-xl p-4 flex items-center gap-4 border border-[#333539] relative overflow-hidden group hover:border-[#c3f400]/50 transition-all cursor-pointer shadow-lg"
-                      >
-                        {/* Calendar Date Block */}
-                        <div className="w-14 h-14 rounded-xl bg-[#0c0e12] flex flex-col items-center justify-center border border-[#333539] flex-shrink-0">
-                          {(() => {
-                            const d = new Date(nextUpcomingMatch.dateTime || '');
-                            const month = isNaN(d.getTime()) ? '' : d.toLocaleString('es-ES', { month: 'short' }).toUpperCase();
-                            const day = isNaN(d.getTime()) ? '' : d.getDate();
-                            return (
-                              <>
-                                <span className="font-mono-stats text-[10px] text-[#FF3B30] uppercase font-bold tracking-widest">
-                                  {month}
-                                </span>
-                                <span className="font-headline font-black text-[22px] leading-none text-white mt-0.5">
-                                  {day}
-                                </span>
-                              </>
-                            );
-                          })()}
-                        </div>
+                      <div className="flex flex-col gap-2">
+                        {matches
+                          .filter((m) => m.status === 'UPCOMING')
+                          .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
+                          .slice(0, 3)
+                          .map((m) => (
+                            <div
+                              key={m.id}
+                              onClick={() => setSelectedMatchId(m.id)}
+                              className="bg-[#1e2023] rounded-xl p-4 flex items-center gap-4 border border-[#333539] relative overflow-hidden group hover:border-[#c3f400]/50 transition-all cursor-pointer shadow-lg"
+                            >
+                              {/* Calendar Date Block */}
+                              <div className="w-14 h-14 rounded-xl bg-[#0c0e12] flex flex-col items-center justify-center border border-[#333539] flex-shrink-0">
+                                {(() => {
+                                  const d = new Date(m.dateTime || '');
+                                  const month = isNaN(d.getTime()) ? '' : d.toLocaleString('es-ES', { month: 'short' }).toUpperCase();
+                                  const day = isNaN(d.getTime()) ? '' : d.getDate();
+                                  return (
+                                    <>
+                                      <span className="font-mono-stats text-[10px] text-[#FF3B30] uppercase font-bold tracking-widest">
+                                        {month}
+                                      </span>
+                                      <span className="font-headline font-black text-[22px] leading-none text-white mt-0.5">
+                                        {day}
+                                      </span>
+                                    </>
+                                  );
+                                })()}
+                              </div>
 
-                        {/* Match Info */}
-                        <div className="flex flex-col flex-1 gap-1 min-w-0">
-                          <div className="flex items-center gap-1.5 text-[#c3f400]">
-                            <span className="material-symbols-outlined text-[14px]">schedule</span>
-                            <span className="font-mono-stats text-[12px] font-bold">
-                              {nextUpcomingMatch.dateTime ? nextUpcomingMatch.dateTime.split(' ').pop() : ''}
-                            </span>
-                          </div>
-                          <div className="font-headline font-bold text-[15px] text-white truncate">
-                            {nextUpcomingMatch.roundName || 'Próximo Partido'}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[#c4c9ac] text-[12px] font-mono-stats">
-                            <span className="material-symbols-outlined text-[14px]">location_on</span>
-                            <span className="truncate">{nextUpcomingMatch.courtName || 'Pista por definir'}</span>
-                          </div>
-                        </div>
-
-                        {/* Partner Avatar */}
-                        <div className="flex flex-col items-center justify-center flex-shrink-0 gap-1 pl-2 border-l border-[#333539]">
-                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#c3f400]/60">
-                            <img
-                              src={nextUpcomingMatch.playerA1Avatar || nextUpcomingMatch.playerB1Avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'}
-                              alt="Partner"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <span className="font-mono-stats text-[9px] text-[#c4c9ac]">Pareja</span>
-                        </div>
+                              {/* Match Info */}
+                              <div className="flex flex-col flex-1 gap-1 min-w-0">
+                                <div className="flex items-center gap-1.5 text-[#c3f400]">
+                                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                  <span className="font-mono-stats text-[12px] font-bold">
+                                    {m.dateTime ? m.dateTime.split(' ').pop() : ''}
+                                  </span>
+                                </div>
+                                <div className="font-headline font-bold text-[15px] text-white truncate">
+                                  {m.pairAName} VS {m.pairBName}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[#c4c9ac] text-[12px] font-mono-stats">
+                                  <span className="material-symbols-outlined text-[14px]">location_on</span>
+                                  <span className="truncate">{m.courtName || 'Pista por definir'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                       </div>
                     </section>
                   )}
@@ -881,10 +890,12 @@ export default function App() {
                   matches={matches}
                   courts={courts}
                   auditLogs={auditLogs}
+                  role={role}
                   onUpdateMatchCourt={handleUpdateMatchCourt}
                   onUpdateMatchDateTime={handleUpdateMatchDateTime}
                   onUpdateTournament={handleUpdateTournament}
                   onRegisterUserForTournament={handleRegisterUserForTournament}
+                  onCreateMatch={handleCreateMatch}
                   onRunUnitTests={() => setShowUnitTestModal(true)}
                   onCreateUser={handleCreateUser}
                   onDeleteUser={handleDeleteUser}

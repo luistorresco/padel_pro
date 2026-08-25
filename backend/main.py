@@ -613,6 +613,44 @@ def get_match(match_id: str):
             m["current_game"] = json.loads(m["current_game"])
         return m
 
+@app.post("/api/matches")
+def create_match(match: dict, payload: dict = Depends(require_admin)):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO matches (id, tournament_id, tournament_name, court_id, court_name, date_time,
+                pair_a_id, pair_b_id, pair_a_name, pair_b_name, player_a1_id, player_a2_id,
+                player_b1_id, player_b2_id, player_a1_name, player_a2_name, player_b1_name,
+                player_b2_name, player_a1_avatar, player_a2_avatar, player_b1_avatar, player_b2_avatar,
+                status, sets, current_game, current_set_index, winner_pair_id, winner_team,
+                start_time_ms, elapsed_time_sec, golden_point, sets_to_win, round_name)
+            VALUES (:id, :tournament_id, :tournament_name, :court_id, :court_name, :date_time,
+                :pair_a_id, :pair_b_id, :pair_a_name, :pair_b_name, :player_a1_id, :player_a2_id,
+                :player_b1_id, :player_b2_id, :player_a1_name, :player_a2_name, :player_b1_name,
+                :player_b2_name, :player_a1_avatar, :player_a2_avatar, :player_b1_avatar, :player_b2_avatar,
+                :status, :sets, :current_game, :current_set_index, :winner_pair_id, :winner_team,
+                :start_time_ms, :elapsed_time_sec, :golden_point, :sets_to_win, :round_name)
+        """), {
+            "id": match["id"], "tournament_id": match.get("tournament_id"),
+            "tournament_name": match.get("tournament_name"), "court_id": match.get("court_id"),
+            "court_name": match["court_name"], "date_time": match["date_time"],
+            "pair_a_id": match["pair_a_id"], "pair_b_id": match["pair_b_id"],
+            "pair_a_name": match["pair_a_name"], "pair_b_name": match["pair_b_name"],
+            "player_a1_id": match["player_a1_id"], "player_a2_id": match["player_a2_id"],
+            "player_b1_id": match["player_b1_id"], "player_b2_id": match["player_b2_id"],
+            "player_a1_name": match["player_a1_name"], "player_a2_name": match["player_a2_name"],
+            "player_b1_name": match["player_b1_name"], "player_b2_name": match["player_b2_name"],
+            "player_a1_avatar": match.get("player_a1_avatar"), "player_a2_avatar": match.get("player_a2_avatar"),
+            "player_b1_avatar": match.get("player_b1_avatar"), "player_b2_avatar": match.get("player_b2_avatar"),
+            "status": match.get("status", "UPCOMING"), "sets": json.dumps(match.get("sets", [])),
+            "current_game": json.dumps(match.get("current_game", {})),
+            "current_set_index": match.get("current_set_index", 0),
+            "winner_pair_id": match.get("winner_pair_id"), "winner_team": match.get("winner_team"),
+            "start_time_ms": match.get("start_time_ms"), "elapsed_time_sec": match.get("elapsed_time_sec", 0),
+            "golden_point": match.get("golden_point", False), "sets_to_win": match.get("sets_to_win", 2),
+            "round_name": match.get("round_name"),
+        })
+    return match
+
 @app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match: dict, payload: dict = Depends(get_current_user)):
     with engine.begin() as conn:

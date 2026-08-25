@@ -103,6 +103,11 @@ export const api = {
 
   getMatches: () => fetch(`${API_BASE_NORMALIZED}/api/matches`, { headers: mergeHeaders() }).then(handleResponse),
   getMatch: (matchId: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}`, { headers: mergeHeaders() }).then(handleResponse),
+  createMatch: (match: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/matches`, {
+    method: 'POST',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(match),
+  }).then(handleResponse),
   updateMatch: (matchId: string, match: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}`, {
     method: 'PUT',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
