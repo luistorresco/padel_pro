@@ -241,7 +241,7 @@ def seed_data(conn, data):
     for t in data["tournaments"]:
         conn.execute(text("""
             INSERT INTO tournaments (id, name, logo, description, category, level, location,
-                start_date, end_date, status, format, max_pairs, registered_pair_ids, rules, court_ids)
+                start_date, end_date, status, format, max_pairs, registered_pair_ids, registered_user_ids, rules, court_ids)
             VALUES (:id, :name, :logo, :description, :category, :level, :location,
                 :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :registered_user_ids, :rules, :court_ids)
             ON DUPLICATE KEY UPDATE
