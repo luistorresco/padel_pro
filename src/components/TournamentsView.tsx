@@ -59,6 +59,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
       format: newTourFormat,
       maxPairs: 16,
       registeredPairIds: [],
+      registeredUserIds: [],
       rules: {
         setsToWin: 2,
         goldenPoint: true,

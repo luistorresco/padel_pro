@@ -223,6 +223,7 @@ export const INITIAL_TOURNAMENTS: Tournament[] = [
     format: 'Grupos + eliminación directa',
     maxPairs: 16,
     registeredPairIds: ['pair_galan_lebron', 'pair_coello_tapia', 'pair_chingotto_navarro', 'pair_stupaczuk_dinenno'],
+    registeredUserIds: ['usr_carlos_admin', 'usr_ale_galan', 'usr_juan_lebron', 'usr_agustin_tapia', 'usr_arturo_coello'],
     rules: {
       setsToWin: 2,
       goldenPoint: true,
@@ -246,6 +247,7 @@ export const INITIAL_TOURNAMENTS: Tournament[] = [
     format: 'Fase de grupos',
     maxPairs: 12,
     registeredPairIds: ['pair_chingotto_navarro', 'pair_stupaczuk_dinenno'],
+    registeredUserIds: ['usr_chingotto', 'usr_paquito', 'usr_stupa', 'usr_dinenno'],
     rules: {
       setsToWin: 2,
       goldenPoint: true,
@@ -269,6 +271,7 @@ export const INITIAL_TOURNAMENTS: Tournament[] = [
     format: 'Eliminación directa',
     maxPairs: 8,
     registeredPairIds: ['pair_coello_tapia'],
+    registeredUserIds: ['usr_arturo_coello', 'usr_agustin_tapia'],
     rules: {
       setsToWin: 2,
       goldenPoint: false,

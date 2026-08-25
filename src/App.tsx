@@ -528,6 +528,34 @@ export default function App() {
     await api.updateMatchCourt(matchId, courtId, courtName);
   };
 
+  const handleUpdateMatchDateTime = async (matchId: string, dateTime: string) => {
+    setMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, dateTime } : m))
+    );
+    alert('Fecha y hora del partido actualizada');
+    await api.updateMatch(matchId, { dateTime } as unknown as Record<string, unknown>);
+  };
+
+  const handleUpdateTournament = async (tournamentId: string, updates: Record<string, unknown>) => {
+    setTournaments((prev) =>
+      prev.map((t) => (t.id === tournamentId ? { ...t, ...updates } : t))
+    );
+    await api.updateTournament(tournamentId, updates);
+  };
+
+  const handleRegisterUserForTournament = async (tournamentId: string, userId: string) => {
+    setTournaments((prev) =>
+      prev.map((t) => {
+        if (t.id === tournamentId && !t.registeredUserIds.includes(userId)) {
+          return { ...t, registeredUserIds: [...t.registeredUserIds, userId] };
+        }
+        return t;
+      })
+    );
+    alert('¡Jugador inscrito correctamente en el torneo!');
+    await api.registerUser(tournamentId, userId);
+  };
+
   const handleCreateUser = async (newUser: User) => {
     setPlayers((prev) => [...prev, newUser]);
     const newAudit: AuditLog = {
@@ -856,6 +884,9 @@ export default function App() {
                   courts={courts}
                   auditLogs={auditLogs}
                   onUpdateMatchCourt={handleUpdateMatchCourt}
+                  onUpdateMatchDateTime={handleUpdateMatchDateTime}
+                  onUpdateTournament={handleUpdateTournament}
+                  onRegisterUserForTournament={handleRegisterUserForTournament}
                   onRunUnitTests={() => setShowUnitTestModal(true)}
                   onCreateUser={handleCreateUser}
                   onDeleteUser={handleDeleteUser}

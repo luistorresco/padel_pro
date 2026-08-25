@@ -72,10 +72,20 @@ export const api = {
     method: 'DELETE',
     headers: mergeHeaders(),
   }).then(handleResponse),
+  updateTournament: (tournamentId: string, tournament: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}`, {
+    method: 'PUT',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(tournament),
+  }).then(handleResponse),
   registerPair: (tournamentId: string, pairId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/register`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ pair_id: pairId }),
+  }).then(handleResponse),
+  registerUser: (tournamentId: string, userId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/register_user`, {
+    method: 'POST',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ user_id: userId }),
   }).then(handleResponse),
 
   getCourts: () => fetch(`${API_BASE_NORMALIZED}/api/courts`, { headers: mergeHeaders() }).then(handleResponse),

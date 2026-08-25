@@ -390,6 +390,10 @@ def get_tournaments():
                 t["registered_pair_ids"] = json.loads(t["registered_pair_ids"])
             else:
                 t["registered_pair_ids"] = []
+            if isinstance(t.get("registered_user_ids"), str):
+                t["registered_user_ids"] = json.loads(t["registered_user_ids"])
+            else:
+                t["registered_user_ids"] = []
             if isinstance(t.get("rules"), str):
                 t["rules"] = json.loads(t["rules"])
             else:
@@ -413,6 +417,10 @@ def get_tournament(tournament_id: str):
             t["registered_pair_ids"] = json.loads(t["registered_pair_ids"])
         else:
             t["registered_pair_ids"] = []
+        if isinstance(t.get("registered_user_ids"), str):
+            t["registered_user_ids"] = json.loads(t["registered_user_ids"])
+        else:
+            t["registered_user_ids"] = []
         if isinstance(t.get("rules"), str):
             t["rules"] = json.loads(t["rules"])
         else:
@@ -428,15 +436,15 @@ def create_tournament(tournament: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO tournaments (id, name, logo, description, category, level, location,
-                start_date, end_date, status, format, max_pairs, registered_pair_ids, rules, court_ids)
+                start_date, end_date, status, format, max_pairs, registered_pair_ids, registered_user_ids, rules, court_ids)
             VALUES (:id, :name, :logo, :description, :category, :level, :location,
-                :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :rules, :court_ids)
+                :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :registered_user_ids, :rules, :court_ids)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name), logo = VALUES(logo), description = VALUES(description),
                 category = VALUES(category), level = VALUES(level), location = VALUES(location),
                 start_date = VALUES(start_date), end_date = VALUES(end_date), status = VALUES(status),
                 format = VALUES(format), max_pairs = VALUES(max_pairs),
-                registered_pair_ids = VALUES(registered_pair_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
+                registered_pair_ids = VALUES(registered_pair_ids), registered_user_ids = VALUES(registered_user_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
         """), {
             "id": tournament["id"], "name": tournament["name"], "logo": tournament.get("logo"),
             "description": tournament.get("description"), "category": tournament.get("category"),
@@ -445,10 +453,55 @@ def create_tournament(tournament: dict, payload: dict = Depends(require_admin)):
             "status": tournament.get("status"), "format": tournament.get("format"),
             "max_pairs": tournament.get("max_pairs"),
             "registered_pair_ids": json.dumps(tournament.get("registered_pair_ids", [])),
+            "registered_user_ids": json.dumps(tournament.get("registered_user_ids", [])),
             "rules": json.dumps(tournament.get("rules", {})),
             "court_ids": json.dumps(tournament.get("court_ids", [])),
         })
     return tournament
+
+@app.put("/api/tournaments/{tournament_id}")
+def update_tournament(tournament_id: str, tournament: dict, payload: dict = Depends(require_admin)):
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT * FROM tournaments WHERE id = :id"), {"id": tournament_id})
+        if not result.mappings().first():
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        conn.execute(text("""
+            UPDATE tournaments SET
+                name = :name, logo = :logo, description = :description, category = :category,
+                level = :level, location = :location, start_date = :start_date, end_date = :end_date,
+                status = :status, format = :format, max_pairs = :max_pairs,
+                registered_pair_ids = :registered_pair_ids, registered_user_ids = :registered_user_ids,
+                rules = :rules, court_ids = :court_ids
+            WHERE id = :id
+        """), {
+            "id": tournament_id,
+            "name": tournament.get("name"), "logo": tournament.get("logo"),
+            "description": tournament.get("description"), "category": tournament.get("category"),
+            "level": tournament.get("level"), "location": tournament.get("location"),
+            "start_date": tournament.get("start_date"), "end_date": tournament.get("end_date"),
+            "status": tournament.get("status"), "format": tournament.get("format"),
+            "max_pairs": tournament.get("max_pairs"),
+            "registered_pair_ids": json.dumps(tournament.get("registered_pair_ids", [])),
+            "registered_user_ids": json.dumps(tournament.get("registered_user_ids", [])),
+            "rules": json.dumps(tournament.get("rules", {})),
+            "court_ids": json.dumps(tournament.get("court_ids", [])),
+        })
+    return {**tournament, "id": tournament_id}
+
+@app.post("/api/tournaments/{tournament_id}/register_user")
+def register_user(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
+    user_id = body.get("user_id")
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT registered_user_ids FROM tournaments WHERE id = :id"), {"id": tournament_id})
+        row = result.mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        current = json.loads(row["registered_user_ids"] or "[]")
+        if user_id not in current:
+            current.append(user_id)
+        conn.execute(text("UPDATE tournaments SET registered_user_ids = :ru WHERE id = :id"),
+                     {"ru": json.dumps(current), "id": tournament_id})
+    return {"message": "User registered", "registered_user_ids": current}
 
 @app.delete("/api/tournaments/{tournament_id}")
 def delete_tournament(tournament_id: str, payload: dict = Depends(require_admin)):

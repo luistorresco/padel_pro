@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
     format TEXT,
     max_pairs INTEGER,
     registered_pair_ids TEXT,
+    registered_user_ids TEXT,
     rules TEXT,
     court_ids TEXT
 );
@@ -288,21 +289,22 @@ def seed_data(conn, data):
     for t in data["tournaments"]:
         conn.execute(text("""
             INSERT INTO tournaments (id, name, logo, description, category, level, location,
-                start_date, end_date, status, format, max_pairs, registered_pair_ids, rules, court_ids)
+                start_date, end_date, status, format, max_pairs, registered_pair_ids, registered_user_ids, rules, court_ids)
             VALUES (:id, :name, :logo, :description, :category, :level, :location,
-                :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :rules, :court_ids)
+                :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :registered_user_ids, :rules, :court_ids)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name), logo = VALUES(logo), description = VALUES(description),
                 category = VALUES(category), level = VALUES(level), location = VALUES(location),
                 start_date = VALUES(start_date), end_date = VALUES(end_date), status = VALUES(status),
                 format = VALUES(format), max_pairs = VALUES(max_pairs),
-                registered_pair_ids = VALUES(registered_pair_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
+                registered_pair_ids = VALUES(registered_pair_ids), registered_user_ids = VALUES(registered_user_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
         """), {
             "id": t["id"], "name": t["name"], "logo": t.get("logo"), "description": t.get("description"),
             "category": t.get("category"), "level": t.get("level"), "location": t.get("location"),
             "start_date": t.get("start_date"), "end_date": t.get("end_date"), "status": t.get("status"),
             "format": t.get("format"), "max_pairs": t.get("max_pairs"),
             "registered_pair_ids": json.dumps(t.get("registered_pair_ids", [])),
+            "registered_user_ids": json.dumps(t.get("registered_user_ids", [])),
             "rules": json.dumps(t.get("rules", {})),
             "court_ids": json.dumps(t.get("court_ids", [])),
         })

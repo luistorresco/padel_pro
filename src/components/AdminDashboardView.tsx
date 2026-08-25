@@ -8,6 +8,9 @@ interface AdminDashboardViewProps {
   courts: Court[];
   auditLogs: AuditLog[];
   onUpdateMatchCourt: (matchId: string, courtId: string, courtName: string) => void;
+  onUpdateMatchDateTime: (matchId: string, dateTime: string) => void;
+  onUpdateTournament: (tournamentId: string, updates: Record<string, unknown>) => void;
+  onRegisterUserForTournament: (tournamentId: string, userId: string) => void;
   onRunUnitTests: () => void;
   onCreateUser: (user: User) => void;
   onDeleteUser: (userId: string) => void;
@@ -57,13 +60,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   courts,
   auditLogs,
   onUpdateMatchCourt,
+  onUpdateMatchDateTime,
+  onUpdateTournament,
+  onRegisterUserForTournament,
   onRunUnitTests,
   onCreateUser,
   onDeleteUser,
 }) => {
-  const [adminTab, setAdminTab] = useState<'PANEL' | 'USUARIOS' | 'PISTAS' | 'AUDITORIA'>('PANEL');
+  const [adminTab, setAdminTab] = useState<'PANEL' | 'USUARIOS' | 'PISTAS' | 'TORNEOS' | 'AUDITORIA'>('PANEL');
   const [showCreateUserModal, setShowCreateUserModal] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [editMatchDateTime, setEditMatchDateTime] = useState<string>('');
+  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
+  const [editTournamentStart, setEditTournamentStart] = useState<string>('');
+  const [editTournamentEnd, setEditTournamentEnd] = useState<string>('');
+  const [selectedTournamentForUsers, setSelectedTournamentForUsers] = useState<string | null>(null);
 
   const [newUserName, setNewUserName] = useState<string>('');
   const [newUserSurname, setNewUserSurname] = useState<string>('');
@@ -136,7 +148,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* Admin Subtabs */}
       <div className="flex gap-1 bg-[#1e2023] p-1.5 rounded-xl border border-[#333539] text-[11px] font-mono-stats font-bold">
-        {(['PANEL', 'USUARIOS', 'PISTAS', 'AUDITORIA'] as const).map((tab) => (
+        {(['PANEL', 'USUARIOS', 'PISTAS', 'TORNEOS', 'AUDITORIA'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setAdminTab(tab)}
@@ -197,31 +209,79 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   key={m.id}
                   className="bg-[#282a2e] p-3 rounded-lg border border-[#333539] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[12px] font-mono-stats"
                 >
-                  <div>
+                  <div className="flex-1">
                     <span className="font-bold text-white block">
                       {m.pairAName} VS {m.pairBName}
                     </span>
-                    <span className="text-[11px] text-[#c4c9ac]">
-                      Pista Actual: <b className="text-[#c3f400]">{m.courtName}</b>
+                    <span className="text-[11px] text-[#c4c9ac] block mt-0.5">
+                      Pista: <b className="text-[#c3f400]">{m.courtName || 'Sin asignar'}</b>
+                    </span>
+                    <span className="text-[11px] text-[#c4c9ac] block mt-0.5">
+                      Fecha/Hora: <b className="text-white">{m.dateTime || 'Sin programar'}</b>
                     </span>
                   </div>
 
-                  <select
-                    value={m.courtId || ''}
-                    onChange={(e) => {
-                      const selectedCourt = courts.find((c) => c.id === e.target.value);
-                      if (selectedCourt) {
-                        onUpdateMatchCourt(m.id, selectedCourt.id, selectedCourt.name);
-                      }
-                    }}
-                    className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
-                  >
-                    {courts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.status})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                    <select
+                      value={m.courtId || ''}
+                      onChange={(e) => {
+                        const selectedCourt = courts.find((c) => c.id === e.target.value);
+                        if (selectedCourt) {
+                          onUpdateMatchCourt(m.id, selectedCourt.id, selectedCourt.name);
+                        }
+                      }}
+                      className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                    >
+                      <option value="">Sin pista</option>
+                      {courts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.status})
+                        </option>
+                      ))}
+                    </select>
+
+                    {editingMatchId === m.id ? (
+                      <div className="flex gap-1">
+                        <input
+                          type="datetime-local"
+                          value={editMatchDateTime}
+                          onChange={(e) => setEditMatchDateTime(e.target.value)}
+                          className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px] flex-1"
+                        />
+                        <button
+                          onClick={() => {
+                            onUpdateMatchDateTime(m.id, editMatchDateTime);
+                            setEditingMatchId(null);
+                            setEditMatchDateTime('');
+                          }}
+                          className="bg-[#c3f400] text-[#161e00] px-2 py-1 rounded text-[11px] font-bold"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingMatchId(null);
+                            setEditMatchDateTime('');
+                          }}
+                          className="bg-[#333539] text-white px-2 py-1 rounded text-[11px]"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const d = new Date(m.dateTime || '');
+                          const localIso = isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                          setEditMatchDateTime(localIso);
+                          setEditingMatchId(m.id);
+                        }}
+                        className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
+                      >
+                        📅 Programar fecha/hora
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -309,6 +369,152 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 >
                   {c.status === 'AVAILABLE' ? 'DISPONIBLE' : 'OCUPADA EN PARTIDO'}
                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tournaments Management */}
+      {adminTab === 'TORNEOS' && (
+        <div className="bg-[#1e2023] rounded-xl p-4 border border-[#333539] flex flex-col gap-3">
+          <h3 className="font-headline font-bold text-[16px] text-white border-b border-[#333539] pb-2">
+            🏆 Programación de Torneos e Inscripciones
+          </h3>
+
+          <div className="flex flex-col gap-3">
+            {tournaments.map((t) => (
+              <div
+                key={t.id}
+                className="bg-[#282a2e] p-3.5 rounded-lg border border-[#333539] flex flex-col gap-2 text-[12px] font-mono-stats"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white text-[13px]">{t.name}</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    t.status === 'ACTIVE' ? 'bg-[#c3f400]/10 text-[#c3f400]' :
+                    t.status === 'REGISTRATION' ? 'bg-blue-500/10 text-blue-400' :
+                    t.status === 'UPCOMING' ? 'bg-yellow-500/10 text-yellow-400' :
+                    'bg-[#FF3B30]/10 text-[#FF3B30]'
+                  }`}>
+                    {t.status}
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-[#c4c9ac]">
+                  <div>📍 {t.location}</div>
+                  <div>📅 {t.startDate} → {t.endDate}</div>
+                  <div>👥 {t.registeredUserIds.length} jugadores / {t.registeredPairIds.length} parejas</div>
+                </div>
+
+                {editingTournamentId === t.id ? (
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[10px] text-[#8e9379] block mb-0.5">Inicio</label>
+                        <input
+                          type="date"
+                          value={editTournamentStart}
+                          onChange={(e) => setEditTournamentStart(e.target.value)}
+                          className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded text-[11px]"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[10px] text-[#8e9379] block mb-0.5">Fin</label>
+                        <input
+                          type="date"
+                          value={editTournamentEnd}
+                          onChange={(e) => setEditTournamentEnd(e.target.value)}
+                          className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded text-[11px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          onUpdateTournament(t.id, { startDate: editTournamentStart, endDate: editTournamentEnd });
+                          setEditingTournamentId(null);
+                        }}
+                        className="bg-[#c3f400] text-[#161e00] px-2 py-1 rounded text-[11px] font-bold flex-1"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingTournamentId(null);
+                          setEditTournamentStart('');
+                          setEditTournamentEnd('');
+                        }}
+                        className="bg-[#333539] text-white px-2 py-1 rounded text-[11px] flex-1"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    <button
+                      onClick={() => {
+                        setEditingTournamentId(t.id);
+                        setEditTournamentStart(t.startDate);
+                        setEditTournamentEnd(t.endDate);
+                      }}
+                      className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
+                    >
+                      📅 Programar fechas
+                    </button>
+
+                    {selectedTournamentForUsers === t.id ? (
+                      <div className="flex flex-col gap-1.5 w-full mt-1">
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              onRegisterUserForTournament(t.id, e.target.value);
+                              e.target.value = '';
+                            }
+                          }}
+                          className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>Inscribir jugador...</option>
+                          {players
+                            .filter((p) => !t.registeredUserIds.includes(p.id))
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} {p.surname} (@{p.username})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={() => setSelectedTournamentForUsers(null)}
+                          className="bg-[#333539] text-white px-2 py-1 rounded text-[11px]"
+                        >
+                          Cerrar inscripción
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedTournamentForUsers(t.id)}
+                        className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] px-2 py-1.5 rounded text-[11px] font-bold"
+                      >
+                        👤 Inscribir jugadores
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {t.registeredUserIds.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {t.registeredUserIds.map((uid) => {
+                      const player = players.find((p) => p.id === uid);
+                      if (!player) return null;
+                      return (
+                        <span key={uid} className="bg-[#333539] text-white px-2 py-0.5 rounded text-[10px]">
+                          {player.name} {player.surname}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </div>

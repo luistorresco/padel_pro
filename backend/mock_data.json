@@ -413,6 +413,7 @@
       "format": "Grupos + eliminación directa",
       "max_pairs": 16,
       "registered_pair_ids": ["pair_galan_lebron", "pair_coello_tapia", "pair_chingotto_navarro", "pair_stupaczuk_dinenno"],
+      "registered_user_ids": ["usr_carlos_admin", "usr_ale_galan", "usr_juan_lebron", "usr_agustin_tapia", "usr_arturo_coello"],
       "rules": {
         "sets_to_win": 2,
         "golden_point": true,
@@ -442,6 +443,7 @@
       "format": "Fase de grupos",
       "max_pairs": 12,
       "registered_pair_ids": ["pair_chingotto_navarro", "pair_stupaczuk_dinenno"],
+      "registered_user_ids": ["usr_chingotto", "usr_paquito", "usr_stupa", "usr_dinenno"],
       "rules": {
         "sets_to_win": 2,
         "golden_point": true,
@@ -471,6 +473,7 @@
       "format": "Eliminación directa",
       "max_pairs": 8,
       "registered_pair_ids": ["pair_coello_tapia"],
+      "registered_user_ids": ["usr_arturo_coello", "usr_agustin_tapia"],
       "rules": {
         "sets_to_win": 2,
         "golden_point": false,

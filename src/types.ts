@@ -118,6 +118,7 @@ export interface Tournament {
   format: TournamentFormat;
   maxPairs: number;
   registeredPairIds: string[];
+  registeredUserIds: string[];
   rules: TournamentRules;
   courtIds: string[];
 }
