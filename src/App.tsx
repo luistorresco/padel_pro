@@ -525,11 +525,14 @@ export default function App() {
   };
 
   const handleUpdateMatchDateTime = async (matchId: string, dateTime: string) => {
+    const fullMatch = matches.find((m) => m.id === matchId);
+    if (!fullMatch) return;
+    const updatedMatch = { ...fullMatch, dateTime };
     setMatches((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, dateTime } : m))
+      prev.map((m) => (m.id === matchId ? updatedMatch : m))
     );
     alert('Fecha y hora del partido actualizada');
-    await api.updateMatch(matchId, { dateTime } as unknown as Record<string, unknown>);
+    await api.updateMatch(matchId, updatedMatch as unknown as Record<string, unknown>);
   };
 
   const handleCreateMatch = async (newMatch: Match) => {
@@ -541,6 +544,17 @@ export default function App() {
       console.error('[App] Failed to create match via API.', error);
       setMatches((prev) => prev.filter((m) => m.id !== newMatch.id));
       alert('No se pudo crear el partido en el servidor.');
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+    try {
+      await api.deleteMatch(matchId);
+      alert('Partido eliminado correctamente');
+    } catch (error) {
+      console.error('[App] Failed to delete match via API.', error);
+      alert('No se pudo eliminar el partido en el servidor.');
     }
   };
 
@@ -893,6 +907,7 @@ export default function App() {
                   role={role}
                   onUpdateMatchCourt={handleUpdateMatchCourt}
                   onUpdateMatchDateTime={handleUpdateMatchDateTime}
+                  onDeleteMatch={handleDeleteMatch}
                   onUpdateTournament={handleUpdateTournament}
                   onRegisterUserForTournament={handleRegisterUserForTournament}
                   onCreateMatch={handleCreateMatch}

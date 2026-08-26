@@ -123,6 +123,10 @@ export const api = {
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   }).then(handleResponse),
+  deleteMatch: (matchId: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}`, {
+    method: 'DELETE',
+    headers: mergeHeaders(),
+  }).then(handleResponse),
   createMatchEvent: (matchId: string, event: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}/events`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),

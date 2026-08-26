@@ -11,6 +11,7 @@ interface AdminDashboardViewProps {
   role: UserRole;
   onUpdateMatchCourt: (matchId: string, courtId: string, courtName: string) => void;
   onUpdateMatchDateTime: (matchId: string, dateTime: string) => void;
+  onDeleteMatch: (matchId: string) => void;
   onUpdateTournament: (tournamentId: string, updates: Record<string, unknown>) => void;
   onRegisterUserForTournament: (tournamentId: string, userId: string) => void;
   onCreateMatch: (match: Match) => void;
@@ -66,6 +67,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   role,
   onUpdateMatchCourt,
   onUpdateMatchDateTime,
+  onDeleteMatch,
   onUpdateTournament,
   onRegisterUserForTournament,
   onCreateMatch,
@@ -289,20 +291,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           Cancelar
                         </button>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          const d = new Date(m.dateTime || '');
-                          const localIso = isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                          setEditMatchDateTime(localIso);
-                          setEditingMatchId(m.id);
-                        }}
-                        className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
-                       >
-                         📅 Programar fecha/hora
-                       </button>
-                     )}
-                   </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const d = new Date(m.dateTime || '');
+                            const localIso = isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                            setEditMatchDateTime(localIso);
+                            setEditingMatchId(m.id);
+                          }}
+                          className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
+                        >
+                          📅 Programar fecha/hora
+                        </button>
+                      )}
+
+                      {role === 'ADMIN' && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm('¿Eliminar este partido?')) {
+                              onDeleteMatch(m.id);
+                            }
+                          }}
+                          className="bg-red-900/40 hover:bg-red-900/60 text-red-200 border border-red-500/50 px-2 py-1.5 rounded text-[11px]"
+                        >
+                          🗑 Eliminar
+                        </button>
+                      )}
+                    </div>
                  </div>
                ))}
              </div>

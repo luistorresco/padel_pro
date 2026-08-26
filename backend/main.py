@@ -778,6 +778,15 @@ def update_match_court(match_id: str, body: dict, payload: dict = Depends(requir
                      {"cid": court_id, "cname": court_name, "id": match_id})
     return {"message": "Court updated", "court_id": court_id, "court_name": court_name}
 
+@app.delete("/api/matches/{match_id}")
+def delete_match(match_id: str, payload: dict = Depends(require_admin)):
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
+        if not result.mappings().first():
+            raise HTTPException(status_code=404, detail="Match not found")
+        conn.execute(text("DELETE FROM matches WHERE id = :id"), {"id": match_id})
+    return {"message": "Match deleted", "match_id": match_id}
+
 @app.post("/api/matches/{match_id}/finish")
 def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_user)):
     with engine.begin() as conn:
