@@ -404,7 +404,13 @@ def seed_data(conn, data):
 def init_db():
     with engine.begin() as conn:
         create_schema(conn)
-        data = load_mock_data()
-        seed_data(conn, data)
-    print("[db] Database initialized and seeded successfully.")
+        result = conn.execute(text("SELECT COUNT(*) as cnt FROM users"))
+        row = result.mappings().first()
+        if row and row["cnt"] == 0:
+            data = load_mock_data()
+            seed_data(conn, data)
+            print("[db] Database seeded with initial data.")
+        else:
+            print("[db] Database already contains data. Skipping seed.")
+    print("[db] Database initialized successfully.")
     return engine
