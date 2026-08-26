@@ -800,7 +800,21 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
         if isinstance(match.get("current_game"), str):
             match["current_game"] = json.loads(match["current_game"])
 
-        winner_team = body.get("winner_team") or match.get("winner_team") or "A"
+        print("[DEBUG] match_id:", match_id)
+        print("[DEBUG] body winner_team:", body.get("winner_team"))
+        print("[DEBUG] match winner_team:", match.get("winner_team"))
+        print("[DEBUG] sets:", match.get("sets"))
+        print("[DEBUG] player_a1_id:", match.get("player_a1_id"))
+        print("[DEBUG] player_a2_id:", match.get("player_a2_id"))
+        print("[DEBUG] player_b1_id:", match.get("player_b1_id"))
+        print("[DEBUG] player_b2_id:", match.get("player_b2_id"))
+
+        winner_team = body.get("winner_team") or match.get("winner_team")
+        if not winner_team:
+            sets = match.get("sets", [])
+            a_wins = sum(1 for s in sets if s.get("winner") == "A")
+            b_wins = sum(1 for s in sets if s.get("winner") == "B")
+            winner_team = "A" if a_wins >= b_wins else "B"
         is_winner_a = str(winner_team).upper() == "A"
         winner_player_ids = []
         loser_player_ids = []
@@ -810,6 +824,10 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
         else:
             winner_player_ids = [match.get("player_b1_id"), match.get("player_b2_id")]
             loser_player_ids = [match.get("player_a1_id"), match.get("player_a2_id")]
+
+        print("[DEBUG] winner_team:", winner_team)
+        print("[DEBUG] winner_player_ids:", winner_player_ids)
+        print("[DEBUG] loser_player_ids:", loser_player_ids)
 
         conn.execute(text("""
             UPDATE matches SET status = 'FINISHED', winner_team = :winner_team
@@ -821,9 +839,11 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
 
         def update_player_stats(user_id: str, won: bool):
             if not user_id:
+                print("[DEBUG] skip empty user_id")
                 return
             user_row = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id}).mappings().first()
             if not user_row:
+                print("[DEBUG] user not found:", user_id)
                 return
             stats = dict(user_row).get("stats")
             if isinstance(stats, str):
@@ -871,6 +891,7 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
             stats["gamesLost"] = stats.get("gamesLost", 0) + games_lost
             stats["pointsWon"] = stats.get("pointsWon", 0) + points_won
 
+            print("[DEBUG] updating user", user_id, "won", won, "stats", stats)
             conn.execute(text("""
                 UPDATE users SET stats = :stats, points = :points WHERE id = :id
             """), {
