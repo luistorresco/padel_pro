@@ -791,22 +791,106 @@ def delete_match(match_id: str, payload: dict = Depends(require_admin)):
 def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_user)):
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
-        if not result.mappings().first():
+        row = result.mappings().first()
+        if not row:
             raise HTTPException(status_code=404, detail="Match not found")
+        match = dict(row)
+        if isinstance(match.get("sets"), str):
+            match["sets"] = json.loads(match["sets"])
+        if isinstance(match.get("current_game"), str):
+            match["current_game"] = json.loads(match["current_game"])
+
+        winner_team = body.get("winner_team") or match.get("winner_team") or "A"
+        is_winner_a = str(winner_team).upper() == "A"
+        winner_player_ids = []
+        loser_player_ids = []
+        if is_winner_a:
+            winner_player_ids = [match.get("player_a1_id"), match.get("player_a2_id")]
+            loser_player_ids = [match.get("player_b1_id"), match.get("player_b2_id")]
+        else:
+            winner_player_ids = [match.get("player_b1_id"), match.get("player_b2_id")]
+            loser_player_ids = [match.get("player_a1_id"), match.get("player_a2_id")]
+
         conn.execute(text("""
             UPDATE matches SET status = 'FINISHED', winner_team = :winner_team
             WHERE id = :id
         """), {
             "id": match_id,
-            "winner_team": body.get("winner_team"),
+            "winner_team": winner_team,
         })
+
+        def update_player_stats(user_id: str, won: bool):
+            if not user_id:
+                return
+            user_row = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id}).mappings().first()
+            if not user_row:
+                return
+            stats = dict(user_row).get("stats")
+            if isinstance(stats, str):
+                stats = json.loads(stats) or {}
+            if not stats:
+                stats = {}
+            for k, v in DEFAULT_STATS.items():
+                stats.setdefault(k, v)
+
+            sets = match.get("sets", [])
+            if won:
+                player_winner = "A" if is_winner_a else "B"
+            else:
+                player_winner = "B" if is_winner_a else "A"
+            sets_won = sum(1 for s in sets if s.get("winner") == player_winner)
+            games_won = 0
+            games_lost = 0
+            for s in sets:
+                if s.get("winner") != player_winner:
+                    continue
+                if player_winner == "A":
+                    games_won += s.get("team_a_games", 0)
+                    games_lost += s.get("team_b_games", 0)
+                else:
+                    games_won += s.get("team_b_games", 0)
+                    games_lost += s.get("team_a_games", 0)
+
+            points = match.get("current_game", {})
+            points_won = points.get("team_a_points" if player_winner == "A" else "team_b_points", "0")
+            try:
+                points_won = int(points_won)
+            except Exception:
+                points_won = 0
+
+            stats["matchesPlayed"] = stats.get("matchesPlayed", 0) + 1
+            if won:
+                stats["matchesWon"] = stats.get("matchesWon", 0) + 1
+                stats["points"] = stats.get("points", 0) + 150
+            else:
+                stats["matchesLost"] = stats.get("matchesLost", 0) + 1
+                stats["points"] = stats.get("points", 0) + 30
+            stats["setsWon"] = stats.get("setsWon", 0) + sets_won
+            stats["setsLost"] = stats.get("setsLost", 0) + (len(sets) - sets_won)
+            stats["gamesWon"] = stats.get("gamesWon", 0) + games_won
+            stats["gamesLost"] = stats.get("gamesLost", 0) + games_lost
+            stats["pointsWon"] = stats.get("pointsWon", 0) + points_won
+
+            conn.execute(text("""
+                UPDATE users SET stats = :stats, points = :points WHERE id = :id
+            """), {
+                "id": user_id,
+                "stats": json.dumps(stats),
+                "points": stats.get("points", 0),
+            })
+
+        for pid in winner_player_ids:
+            update_player_stats(pid, True)
+        for pid in loser_player_ids:
+            update_player_stats(pid, False)
+
     if body.get("create_notification") and body.get("notification"):
         notif = body["notification"]
         try:
             api.create_notification(notif)
         except Exception:
             pass
-    return {"message": "Match finished", "match_id": match_id, "winner_team": body.get("winner_team")}
+    return {"message": "Match finished", "match_id": match_id, "winner_team": winner_team}
 
 @app.post("/api/matches/{match_id}/events")
 def create_match_event(match_id: str, event: dict, payload: dict = Depends(get_current_user)):

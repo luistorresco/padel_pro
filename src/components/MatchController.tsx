@@ -50,6 +50,10 @@ export const MatchController: React.FC<MatchControllerProps> = ({
   // Confirmation Modal State for Resetting Match
   const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
 
+  // Finish Popup State
+  const [showFinishPopup, setShowFinishPopup] = useState<boolean>(false);
+  const [finishWinnerName, setFinishWinnerName] = useState<string>('');
+
   // WebCam and Engine Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -335,6 +339,9 @@ export const MatchController: React.FC<MatchControllerProps> = ({
       if (result.updatedMatch.status === 'FINISHED') {
         setTimerRunning(false);
         audioFx.playWinnerTrumpet();
+        const winnerName = team === 'A' ? match.pairAName : match.pairBName;
+        setFinishWinnerName(winnerName);
+        setShowFinishPopup(true);
       }
 
       const newEvents = [result.event, ...eventsRef.current];
@@ -1077,6 +1084,27 @@ export const MatchController: React.FC<MatchControllerProps> = ({
                 <span>Sí, Reiniciar</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Finish Popup */}
+      {showFinishPopup && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-inherit flex items-center justify-center p-4">
+          <div className="bg-[#1b1e23] border border-[#c3f400]/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-[#c3f400]/15 flex items-center justify-center mb-3 text-[#c3f400]">
+              <span className="material-symbols-outlined text-[28px]">emoji_events</span>
+            </div>
+            <h3 className="font-headline font-bold text-[18px] text-white mb-2">¡Partido Finalizado!</h3>
+            <p className="text-[#c4c9ac] text-[14px] mb-6 leading-relaxed">
+              Ganador: <span className="text-[#c3f400] font-bold">{finishWinnerName}</span>
+            </p>
+            <button
+              onClick={() => setShowFinishPopup(false)}
+              className="bg-[#c3f400] text-[#161e00] px-4 py-2 rounded-xl font-bold text-[14px] shadow-lg"
+            >
+              Aceptar
+            </button>
           </div>
         </div>
       )}

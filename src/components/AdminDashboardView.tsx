@@ -221,13 +221,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
 
           {/* Quick Match Court Re-Assignment */}
-          <div className="bg-[#1e2023] rounded-xl p-4 border border-[#333539] flex flex-col gap-3">
+          <div className="bg-[#1e2023] rounded-xl p-4 border border-[#333539] flex flex-col gap-4">
             <h3 className="font-headline font-bold text-[15px] text-white border-b border-[#333539] pb-2">
               🎾 Programación y Asignación de Pistas
             </h3>
 
             <div className="flex flex-col gap-2">
-              {matches.map((m) => (
+              {matches.filter((m) => m.status !== 'FINISHED').length === 0 && (
+                <p className="text-[12px] text-[#8e9379] font-mono-stats text-center py-3">
+                  No hay partidos pendientes o en vivo.
+                </p>
+              )}
+              {matches.filter((m) => m.status !== 'FINISHED').map((m) => (
                 <div
                   key={m.id}
                   className="bg-[#282a2e] p-3 rounded-lg border border-[#333539] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[12px] font-mono-stats"
@@ -291,47 +296,76 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           Cancelar
                         </button>
                       </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            const d = new Date(m.dateTime || '');
-                            const localIso = isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                            setEditMatchDateTime(localIso);
-                            setEditingMatchId(m.id);
-                          }}
-                          className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
-                        >
-                          📅 Programar fecha/hora
-                        </button>
-                      )}
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const d = new Date(m.dateTime || '');
+                          const localIso = isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                          setEditMatchDateTime(localIso);
+                          setEditingMatchId(m.id);
+                        }}
+                        className="bg-[#333539] hover:bg-[#37393d] text-white px-2 py-1.5 rounded text-[11px]"
+                      >
+                        📅 Programar fecha/hora
+                      </button>
+                    )}
 
-                      {role === 'ADMIN' && (
-                        <button
-                          onClick={() => {
-                            if (window.confirm('¿Eliminar este partido?')) {
-                              onDeleteMatch(m.id);
-                            }
-                          }}
-                          className="bg-red-900/40 hover:bg-red-900/60 text-red-200 border border-red-500/50 px-2 py-1.5 rounded text-[11px]"
-                        >
-                          🗑 Eliminar
-                        </button>
-                      )}
+                    {role === 'ADMIN' && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm('¿Eliminar este partido?')) {
+                            onDeleteMatch(m.id);
+                          }
+                        }}
+                        className="bg-red-900/40 hover:bg-red-900/60 text-red-200 border border-red-500/50 px-2 py-1.5 rounded text-[11px]"
+                      >
+                        🗑 Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {matches.filter((m) => m.status === 'FINISHED').length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h4 className="font-headline font-bold text-[13px] text-[#8e9379] border-b border-[#333539] pb-1">
+                  ✅ Partidos Terminados
+                </h4>
+                {matches.filter((m) => m.status === 'FINISHED').map((m) => (
+                  <div
+                    key={m.id}
+                    className="bg-[#1b1e23]/60 p-3 rounded-lg border border-[#333539]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[12px] font-mono-stats opacity-75"
+                  >
+                    <div className="flex-1">
+                      <span className="font-bold text-[#8e9379] block">
+                        {m.pairAName} VS {m.pairBName}
+                      </span>
+                      <span className="text-[11px] text-[#8e9379] block mt-0.5">
+                        Pista: <b className="text-[#c4c9ac]">{m.courtName || 'Sin asignar'}</b>
+                      </span>
+                      <span className="text-[11px] text-[#8e9379] block mt-0.5">
+                        Fecha/Hora: <b className="text-[#c4c9ac]">{m.dateTime || 'Sin programar'}</b>
+                      </span>
+                      <span className="text-[10px] text-[#c3f400] font-bold mt-1 inline-block bg-[#c3f400]/10 px-2 py-0.5 rounded">
+                        FINALIZADO
+                      </span>
                     </div>
-                 </div>
-               ))}
-             </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-             {role === 'ADMIN' && (
-               <button
-                 onClick={() => setShowCreateMatchModal(true)}
-                 className="bg-[#c3f400] text-[#161e00] font-headline font-bold text-[12px] py-2 px-3.5 rounded-lg flex items-center gap-1 hover:bg-[#abd600] transition-all active:scale-95 shadow-md"
-               >
-                 <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                 <span>Crear Partido</span>
-               </button>
-             )}
-           </div>
+            {role === 'ADMIN' && (
+              <button
+                onClick={() => setShowCreateMatchModal(true)}
+                className="bg-[#c3f400] text-[#161e00] font-headline font-bold text-[12px] py-2 px-3.5 rounded-lg flex items-center gap-1 hover:bg-[#abd600] transition-all active:scale-95 shadow-md"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                <span>Crear Partido</span>
+              </button>
+            )}
+          </div>
          </div>
        )}
 
