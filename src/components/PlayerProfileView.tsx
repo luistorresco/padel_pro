@@ -187,22 +187,22 @@ export const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({
       {activeTab === 'RESUMEN' && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1e2023] p-4 rounded-xl border border-[#333539] flex flex-col justify-center text-center">
-            <span className="text-[11px] font-mono-stats text-[#8e9379]">Partidos Jugados</span>
-            <span className="font-headline font-black text-[32px] text-white mt-1">
-              {stats.matchesPlayed}
+            <span className="text-[11px] font-mono-stats text-[#8e9379]">Victorias</span>
+            <span className="font-headline font-black text-[32px] text-[#c3f400] mt-1">
+              {stats.matchesWon || 0}
             </span>
-            <span className="text-[11px] font-mono-stats text-[#c3f400]">
-              {stats.matchesWon} PG / {stats.matchesLost} PP
+            <span className="text-[11px] font-mono-stats text-[#c4c9ac]">
+              Derrotas: {stats.matchesLost || 0}
             </span>
           </div>
 
           <div className="bg-[#1e2023] p-4 rounded-xl border border-[#333539] flex flex-col justify-center text-center">
-            <span className="text-[11px] font-mono-stats text-[#8e9379]">% Victorias</span>
-            <span className="font-headline font-black text-[32px] text-[#c3f400] mt-1">
-              {winRate}%
+            <span className="text-[11px] font-mono-stats text-[#8e9379]">Sets Ganados</span>
+            <span className="font-headline font-black text-[32px] text-white mt-1">
+              {stats.setsWon || 0}
             </span>
             <span className="text-[11px] font-mono-stats text-[#c4c9ac]">
-              {stats.setsWon} Sets Ganados
+              Sets Perdidos: {stats.setsLost || 0}
             </span>
           </div>
 

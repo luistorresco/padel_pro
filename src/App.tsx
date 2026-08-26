@@ -243,81 +243,26 @@ export default function App() {
         console.error('[App] Failed to finish match via API, applying local fallback.', error);
       }
 
-      setPlayers((prevPlayers) => {
-        const nextPlayers = prevPlayers.map((p) => {
-          const isWinner = winnerPlayerIds.includes(p.id);
-          const isLoser = loserPlayerIds.includes(p.id);
-          if (!isWinner && !isLoser) return p;
+      const [usersAfter, pairsAfter, tournamentsAfter, matchesAfter] = await Promise.all([
+        api.getUsers(),
+        api.getPairs(),
+        api.getTournaments(),
+        api.getMatches(),
+      ]);
 
-          const myTeamWon = isWinner;
-          const mySetsWon = myTeamWon ? (isWinnerA ? setsWonA : setsWonB) : (isWinnerA ? setsWonB : setsWonA);
-          const mySetsLost = myTeamWon ? (isWinnerA ? setsWonB : setsWonA) : (isWinnerA ? setsWonA : setsWonB);
-          const myGamesWon = myTeamWon ? (isWinnerA ? gamesWonA : gamesWonB) : (isWinnerA ? gamesWonB : gamesWonA);
-          const myGamesLost = myTeamWon ? (isWinnerA ? gamesWonB : gamesWonA) : (isWinnerA ? gamesWonA : gamesWonB);
+      setPlayers(usersAfter as User[]);
+      setPairs(pairsAfter as Pair[]);
+      setTournaments(tournamentsAfter as Tournament[]);
+      setMatches((matchesAfter as Match[]).map((m) => ({
+        ...m,
+        currentGame: m.currentGame || createInitialGameScore('A'),
+      })));
 
-          return {
-            ...p,
-            points: p.points + (myTeamWon ? 150 : 30),
-            stats: {
-              ...(p.stats || {}),
-              matchesPlayed: (p.stats?.matchesPlayed || 0) + 1,
-              matchesWon: myTeamWon ? (p.stats?.matchesWon || 0) + 1 : (p.stats?.matchesWon || 0),
-              matchesLost: !myTeamWon ? (p.stats?.matchesLost || 0) + 1 : (p.stats?.matchesLost || 0),
-              setsWon: (p.stats?.setsWon || 0) + mySetsWon,
-              setsLost: (p.stats?.setsLost || 0) + mySetsLost,
-              gamesWon: (p.stats?.gamesWon || 0) + myGamesWon,
-              gamesLost: (p.stats?.gamesLost || 0) + myGamesLost,
-            },
-          };
-        });
-
-        setSelectedPlayer((prevSelected) => {
-          if (!prevSelected) return prevSelected;
-          return nextPlayers.find((p) => p.id === prevSelected.id) || prevSelected;
-        });
-
-        return nextPlayers;
-      });
-
-      setUser((prevUser) => {
-        const isWinner = winnerPlayerIds.includes(prevUser.id);
-        const isLoser = loserPlayerIds.includes(prevUser.id);
-        if (!isWinner && !isLoser) return prevUser;
-
-        const myTeamWon = isWinner;
-        const mySetsWon = myTeamWon ? (isWinnerA ? setsWonA : setsWonB) : (isWinnerA ? setsWonB : setsWonA);
-        const mySetsLost = myTeamWon ? (isWinnerA ? setsWonB : setsWonA) : (isWinnerA ? setsWonA : setsWonB);
-        const myGamesWon = myTeamWon ? (isWinnerA ? gamesWonA : gamesWonB) : (isWinnerA ? gamesWonB : gamesWonA);
-        const myGamesLost = myTeamWon ? (isWinnerA ? gamesWonB : gamesWonA) : (isWinnerA ? gamesWonA : gamesWonB);
-
-        return {
-          ...prevUser,
-          points: prevUser.points + (myTeamWon ? 150 : 30),
-          stats: {
-            ...(prevUser.stats || {}),
-            matchesPlayed: (prevUser.stats?.matchesPlayed || 0) + 1,
-            matchesWon: myTeamWon ? (prevUser.stats?.matchesWon || 0) + 1 : (prevUser.stats?.matchesWon || 0),
-            matchesLost: !myTeamWon ? (prevUser.stats?.matchesLost || 0) + 1 : (prevUser.stats?.matchesLost || 0),
-            setsWon: (prevUser.stats?.setsWon || 0) + mySetsWon,
-            setsLost: (prevUser.stats?.setsLost || 0) + mySetsLost,
-            gamesWon: (prevUser.stats?.gamesWon || 0) + myGamesWon,
-            gamesLost: (prevUser.stats?.gamesLost || 0) + myGamesLost,
-          },
-        };
-      });
-
-      setPairs((prevPairs) =>
-        prevPairs.map((pair) => {
-          if (pair.id === winnerPairId) {
-            return {
-              ...pair,
-              tournamentsDisputed: (pair.tournamentsDisputed || 0) + 1,
-              titlesWon: updatedMatch.roundName === 'Gran Final' ? (pair.titlesWon || 0) + 1 : (pair.titlesWon || 0),
-            };
-          }
-          return pair;
-        })
-      );
+      const updatedUser = (usersAfter as User[]).find((u) => u.id === user.id);
+      if (updatedUser) {
+        setUser(updatedUser);
+        setSelectedPlayer((prev) => (prev && prev.id === updatedUser.id ? updatedUser : prev));
+      }
 
       if (updatedMatch.tournamentId) {
         const tourId = updatedMatch.tournamentId;
