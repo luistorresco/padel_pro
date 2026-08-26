@@ -307,6 +307,57 @@
         "games_won": 265,
         "games_lost": 205
       }
+    },
+    {
+      "id": "usr_1787371091916",
+      "name": "luis",
+      "surname": "torres",
+      "username": "lucho",
+      "email": "lucho@gmail.com",
+      "role": "PLAYER",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+      "level": "Intermedio",
+      "position": "Drive (Derecha)",
+      "dominant_hand": null,
+      "current_pair_id": null,
+      "points": 0,
+      "phone": "25473547356354",
+      "stats": {
+        "pointsWon": 0,
+        "winners": 0,
+        "smashes": 0,
+        "smashesWon": 0,
+        "voleasWon": 0,
+        "bandejas": 0,
+        "viboras": 0,
+        "remates": 0,
+        "netPointsWon": 0,
+        "touches": 0,
+        "shots": 0,
+        "serves": 0,
+        "firstServes": 0,
+        "secondServes": 0,
+        "aces": 0,
+        "doubleFaults": 0,
+        "breakPoints": 0,
+        "breakPointsWon": 0,
+        "recoveries": 0,
+        "globos": 0,
+        "devoluciones": 0,
+        "pointsSaved": 0,
+        "unforcedErrors": 0,
+        "distanceKm": 0,
+        "timePlayedMin": 0,
+        "avgSpeedKmh": 0,
+        "movesCount": 0,
+        "matchesPlayed": 0,
+        "matchesWon": 0,
+        "matchesLost": 0,
+        "setsWon": 0,
+        "setsLost": 0,
+        "gamesWon": 0,
+        "gamesLost": 0
+      }
     }
   ],
   "pairs": [
@@ -631,6 +682,12 @@
       "email": "admin@padelpro.app",
       "password": "PadelPro2026!",
       "role": "ADMIN"
+    },
+    {
+      "id": "usr_1787371091916",
+      "email": "lucho@gmail.com",
+      "password": "PadelPro2026!",
+      "role": "PLAYER"
     }
   ],
   "gesture_configuration": {

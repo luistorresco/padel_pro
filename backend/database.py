@@ -168,12 +168,22 @@ def create_schema(conn):
             point_team_a_gesture TEXT NOT NULL,
             point_team_b_gesture TEXT NOT NULL,
             undo_gesture TEXT NOT NULL,
+            pause_timer_gesture TEXT NOT NULL,
+            resume_timer_gesture TEXT NOT NULL,
             cooldown_ms INTEGER NOT NULL,
             min_confidence REAL NOT NULL,
             required_hold_frames INTEGER NOT NULL,
             detection_zone TEXT,
             mode TEXT NOT NULL
         )
+    """))
+    conn.execute(text("""
+        ALTER TABLE gesture_config
+        ADD COLUMN IF NOT EXISTS pause_timer_gesture TEXT NOT NULL DEFAULT ''
+    """))
+    conn.execute(text("""
+        ALTER TABLE gesture_config
+        ADD COLUMN IF NOT EXISTS resume_timer_gesture TEXT NOT NULL DEFAULT ''
     """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS users_auth (
