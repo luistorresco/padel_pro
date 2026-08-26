@@ -214,7 +214,7 @@ export default function App() {
       const notificationBody = `¡Victoria para ${winnerPairName}! Se han otorgado +150 pts de ranking y la pareja avanza en el torneo.`;
 
       const finishBody = {
-        winner_team: updatedMatch.winnerTeam,
+        winner_team: isWinnerA ? 'A' : 'B',
         create_notification: true,
         notification: {
           id: 'notif_' + Date.now(),
@@ -241,39 +241,13 @@ export default function App() {
         await api.finishMatch(updatedMatch.id, finishBody as unknown as Record<string, unknown>);
       } catch (error) {
         console.error('[App] Failed to finish match via API, applying local fallback.', error);
-        setPlayers((prevPlayers) =>
-          prevPlayers.map((p) => {
-            const isWinner = winnerPlayerIds.includes(p.id);
-            const isLoser = loserPlayerIds.includes(p.id);
-            if (!isWinner && !isLoser) return p;
+      }
 
-            const myTeamWon = isWinner;
-            const mySetsWon = myTeamWon ? (isWinnerA ? setsWonA : setsWonB) : (isWinnerA ? setsWonB : setsWonA);
-            const mySetsLost = myTeamWon ? (isWinnerA ? setsWonB : setsWonA) : (isWinnerA ? setsWonA : setsWonB);
-            const myGamesWon = myTeamWon ? (isWinnerA ? gamesWonA : gamesWonB) : (isWinnerA ? gamesWonB : gamesWonA);
-            const myGamesLost = myTeamWon ? (isWinnerA ? gamesWonB : gamesWonA) : (isWinnerA ? gamesWonA : gamesWonB);
-
-            return {
-              ...p,
-              points: p.points + (myTeamWon ? 150 : 30),
-              stats: {
-                ...(p.stats || {}),
-                matchesPlayed: (p.stats?.matchesPlayed || 0) + 1,
-                matchesWon: myTeamWon ? (p.stats?.matchesWon || 0) + 1 : (p.stats?.matchesWon || 0),
-                matchesLost: !myTeamWon ? (p.stats?.matchesLost || 0) + 1 : (p.stats?.matchesLost || 0),
-                setsWon: (p.stats?.setsWon || 0) + mySetsWon,
-                setsLost: (p.stats?.setsLost || 0) + mySetsLost,
-                gamesWon: (p.stats?.gamesWon || 0) + myGamesWon,
-                gamesLost: (p.stats?.gamesLost || 0) + myGamesLost,
-              },
-            };
-          })
-        );
-
-        setUser((prevUser) => {
-          const isWinner = winnerPlayerIds.includes(prevUser.id);
-          const isLoser = loserPlayerIds.includes(prevUser.id);
-          if (!isWinner && !isLoser) return prevUser;
+      setPlayers((prevPlayers) => {
+        const nextPlayers = prevPlayers.map((p) => {
+          const isWinner = winnerPlayerIds.includes(p.id);
+          const isLoser = loserPlayerIds.includes(p.id);
+          if (!isWinner && !isLoser) return p;
 
           const myTeamWon = isWinner;
           const mySetsWon = myTeamWon ? (isWinnerA ? setsWonA : setsWonB) : (isWinnerA ? setsWonB : setsWonA);
@@ -282,145 +256,179 @@ export default function App() {
           const myGamesLost = myTeamWon ? (isWinnerA ? gamesWonB : gamesWonA) : (isWinnerA ? gamesWonA : gamesWonB);
 
           return {
-            ...prevUser,
-            points: prevUser.points + (myTeamWon ? 150 : 30),
+            ...p,
+            points: p.points + (myTeamWon ? 150 : 30),
             stats: {
-              ...(prevUser.stats || {}),
-              matchesPlayed: (prevUser.stats?.matchesPlayed || 0) + 1,
-              matchesWon: myTeamWon ? (prevUser.stats?.matchesWon || 0) + 1 : (prevUser.stats?.matchesWon || 0),
-              matchesLost: !myTeamWon ? (prevUser.stats?.matchesLost || 0) + 1 : (prevUser.stats?.matchesLost || 0),
-              setsWon: (prevUser.stats?.setsWon || 0) + mySetsWon,
-              setsLost: (prevUser.stats?.setsLost || 0) + mySetsLost,
-              gamesWon: (prevUser.stats?.gamesWon || 0) + myGamesWon,
-              gamesLost: (prevUser.stats?.gamesLost || 0) + myGamesLost,
+              ...(p.stats || {}),
+              matchesPlayed: (p.stats?.matchesPlayed || 0) + 1,
+              matchesWon: myTeamWon ? (p.stats?.matchesWon || 0) + 1 : (p.stats?.matchesWon || 0),
+              matchesLost: !myTeamWon ? (p.stats?.matchesLost || 0) + 1 : (p.stats?.matchesLost || 0),
+              setsWon: (p.stats?.setsWon || 0) + mySetsWon,
+              setsLost: (p.stats?.setsLost || 0) + mySetsLost,
+              gamesWon: (p.stats?.gamesWon || 0) + myGamesWon,
+              gamesLost: (p.stats?.gamesLost || 0) + myGamesLost,
             },
           };
         });
 
-        setPairs((prevPairs) =>
-          prevPairs.map((pair) => {
-            if (pair.id === winnerPairId) {
-              return {
-                ...pair,
-                tournamentsDisputed: (pair.tournamentsDisputed || 0) + 1,
-                titlesWon: updatedMatch.roundName === 'Gran Final' ? (pair.titlesWon || 0) + 1 : (pair.titlesWon || 0),
-              };
-            }
-            return pair;
-          })
-        );
+        setSelectedPlayer((prevSelected) => {
+          if (!prevSelected) return prevSelected;
+          return nextPlayers.find((p) => p.id === prevSelected.id) || prevSelected;
+        });
 
-        if (updatedMatch.tournamentId) {
-          const tourId = updatedMatch.tournamentId;
-          const tourMatches = nextMatchesList.filter((m) => m.tournamentId === tourId);
+        return nextPlayers;
+      });
 
-          let targetRoundName = 'Semifinal';
-          if (updatedMatch.roundName === 'Cuartos de Final') {
-            targetRoundName = 'Semifinal';
-          } else if (updatedMatch.roundName === 'Semifinal') {
-            targetRoundName = 'Gran Final';
+      setUser((prevUser) => {
+        const isWinner = winnerPlayerIds.includes(prevUser.id);
+        const isLoser = loserPlayerIds.includes(prevUser.id);
+        if (!isWinner && !isLoser) return prevUser;
+
+        const myTeamWon = isWinner;
+        const mySetsWon = myTeamWon ? (isWinnerA ? setsWonA : setsWonB) : (isWinnerA ? setsWonB : setsWonA);
+        const mySetsLost = myTeamWon ? (isWinnerA ? setsWonB : setsWonA) : (isWinnerA ? setsWonA : setsWonB);
+        const myGamesWon = myTeamWon ? (isWinnerA ? gamesWonA : gamesWonB) : (isWinnerA ? gamesWonB : gamesWonA);
+        const myGamesLost = myTeamWon ? (isWinnerA ? gamesWonB : gamesWonA) : (isWinnerA ? gamesWonA : gamesWonB);
+
+        return {
+          ...prevUser,
+          points: prevUser.points + (myTeamWon ? 150 : 30),
+          stats: {
+            ...(prevUser.stats || {}),
+            matchesPlayed: (prevUser.stats?.matchesPlayed || 0) + 1,
+            matchesWon: myTeamWon ? (prevUser.stats?.matchesWon || 0) + 1 : (prevUser.stats?.matchesWon || 0),
+            matchesLost: !myTeamWon ? (prevUser.stats?.matchesLost || 0) + 1 : (prevUser.stats?.matchesLost || 0),
+            setsWon: (prevUser.stats?.setsWon || 0) + mySetsWon,
+            setsLost: (prevUser.stats?.setsLost || 0) + mySetsLost,
+            gamesWon: (prevUser.stats?.gamesWon || 0) + myGamesWon,
+            gamesLost: (prevUser.stats?.gamesLost || 0) + myGamesLost,
+          },
+        };
+      });
+
+      setPairs((prevPairs) =>
+        prevPairs.map((pair) => {
+          if (pair.id === winnerPairId) {
+            return {
+              ...pair,
+              tournamentsDisputed: (pair.tournamentsDisputed || 0) + 1,
+              titlesWon: updatedMatch.roundName === 'Gran Final' ? (pair.titlesWon || 0) + 1 : (pair.titlesWon || 0),
+            };
           }
+          return pair;
+        })
+      );
 
-          if (updatedMatch.roundName === 'Gran Final') {
-            setTournaments((prevTours) =>
-              prevTours.map((t) => (t.id === tourId ? { ...t, status: 'FINISHED' } : t))
-            );
-          } else {
-            let nextRoundMatch = tourMatches.find(
-              (m) => m.roundName === targetRoundName && m.status === 'UPCOMING'
-            );
+      if (updatedMatch.tournamentId) {
+        const tourId = updatedMatch.tournamentId;
+        const tourMatches = nextMatchesList.filter((m) => m.tournamentId === tourId);
 
-            if (nextRoundMatch) {
-              nextMatchesList = nextMatchesList.map((m) => {
-                if (m.id === nextRoundMatch!.id) {
-                  if (!m.pairAId || m.pairAId === 'pair_tbd' || m.pairAName.includes('Por Definir')) {
-                    return {
-                      ...m,
-                      pairAId: winnerPairId,
-                      pairAName: winnerPairName,
-                      playerA1Id: winnerPlayer1.id,
-                      playerA1Name: winnerPlayer1.name,
-                      playerA1Avatar: winnerPlayer1.avatar,
-                      playerA2Id: winnerPlayer2.id,
-                      playerA2Name: winnerPlayer2.name,
-                      playerA2Avatar: winnerPlayer2.avatar,
-                    };
-                  } else if (!m.pairBId || m.pairBId === 'pair_tbd' || m.pairBName.includes('Por Definir')) {
-                    return {
-                      ...m,
-                      pairBId: winnerPairId,
-                      pairBName: winnerPairName,
-                      playerB1Id: winnerPlayer1.id,
-                      playerB1Name: winnerPlayer1.name,
-                      playerB1Avatar: winnerPlayer1.avatar,
-                      playerB2Id: winnerPlayer2.id,
-                      playerB2Name: winnerPlayer2.name,
-                      playerB2Avatar: winnerPlayer2.avatar,
-                    };
-                  }
-                }
-                return m;
-              });
-            } else {
-              const newNextMatch: Match = {
-                id: 'match_auto_' + Date.now(),
-                tournamentId: tourId,
-                tournamentName: updatedMatch.tournamentName,
-                courtId: 'crt_central',
-                courtName: 'Pista Central',
-                dateTime: new Date(Date.now() + 86400000).toISOString().replace('T', ' ').slice(0, 16),
-                pairAId: winnerPairId,
-                pairBId: 'pair_tbd',
-                pairAName: winnerPairName,
-                pairBName: 'Rival Por Definir',
-                playerA1Id: winnerPlayer1.id,
-                playerA1Name: winnerPlayer1.name,
-                playerA1Avatar: winnerPlayer1.avatar,
-                playerA2Id: winnerPlayer2.id,
-                playerA2Name: winnerPlayer2.name,
-                playerA2Avatar: winnerPlayer2.avatar,
-                playerB1Id: 'usr_tbd1',
-                playerB2Id: 'usr_tbd2',
-                playerB1Name: 'Jugador 1',
-                playerB2Name: 'Jugador 2',
-                playerB1Avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-                playerB2Avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-                status: 'UPCOMING',
-                sets: [{ teamAGames: 0, teamBGames: 0, isTieBreak: false }],
-                currentGame: { teamAPoints: '0', teamBPoints: '0', serverTeam: 'A' },
-                currentSetIndex: 0,
-                elapsedTimeSec: 0,
-                goldenPoint: true,
-                setsToWin: 2,
-                roundName: targetRoundName,
-              };
-              nextMatchesList = [newNextMatch, ...nextMatchesList];
-            }
-          }
+        let targetRoundName = 'Semifinal';
+        if (updatedMatch.roundName === 'Cuartos de Final') {
+          targetRoundName = 'Semifinal';
+        } else if (updatedMatch.roundName === 'Semifinal') {
+          targetRoundName = 'Gran Final';
         }
 
-        const newNotif: NotificationItem = {
-          id: 'notif_' + Date.now(),
-          title: '🏆 ¡Partido Finalizado y Torneo Reajustado!',
-          body: notificationBody,
-          timestamp: 'Ahora',
-          read: false,
-          type: 'MATCH',
-          linkId: updatedMatch.id,
-        };
-        setNotifications((prev) => [newNotif, ...prev]);
+        if (updatedMatch.roundName === 'Gran Final') {
+          setTournaments((prevTours) =>
+            prevTours.map((t) => (t.id === tourId ? { ...t, status: 'FINISHED' } : t))
+          );
+        } else {
+          let nextRoundMatch = tourMatches.find(
+            (m) => m.roundName === targetRoundName && m.status === 'UPCOMING'
+          );
 
-        const finishAudit: AuditLog = {
-          id: 'audit_' + Date.now(),
-          adminName: user.name + ' ' + user.surname,
-          adminEmail: user.email,
-          action: 'PARTIDO_FINALIZADO',
-          target: `Partido ${updatedMatch.id} (${updatedMatch.roundName || 'Eliminatoria'})`,
-          details: `Ganador: ${winnerPairName} vs ${loserPairName}. Puntos asignados en ranking y cuadro reajustado.`,
-          timestamp: new Date().toLocaleString(),
-        };
-        setAuditLogs((prev) => [finishAudit, ...prev]);
+          if (nextRoundMatch) {
+            nextMatchesList = nextMatchesList.map((m) => {
+              if (m.id === nextRoundMatch!.id) {
+                if (!m.pairAId || m.pairAId === 'pair_tbd' || m.pairAName.includes('Por Definir')) {
+                  return {
+                    ...m,
+                    pairAId: winnerPairId,
+                    pairAName: winnerPairName,
+                    playerA1Id: winnerPlayer1.id,
+                    playerA1Name: winnerPlayer1.name,
+                    playerA1Avatar: winnerPlayer1.avatar,
+                    playerA2Id: winnerPlayer2.id,
+                    playerA2Name: winnerPlayer2.name,
+                    playerA2Avatar: winnerPlayer2.avatar,
+                  };
+                } else if (!m.pairBId || m.pairBId === 'pair_tbd' || m.pairBName.includes('Por Definir')) {
+                  return {
+                    ...m,
+                    pairBId: winnerPairId,
+                    pairBName: winnerPairName,
+                    playerB1Id: winnerPlayer1.id,
+                    playerB1Name: winnerPlayer1.name,
+                    playerB1Avatar: winnerPlayer1.avatar,
+                    playerB2Id: winnerPlayer2.id,
+                    playerB2Name: winnerPlayer2.name,
+                    playerB2Avatar: winnerPlayer2.avatar,
+                  };
+                }
+              }
+              return m;
+            });
+          } else {
+            const newNextMatch: Match = {
+              id: 'match_auto_' + Date.now(),
+              tournamentId: tourId,
+              tournamentName: updatedMatch.tournamentName,
+              courtId: 'crt_central',
+              courtName: 'Pista Central',
+              dateTime: new Date(Date.now() + 86400000).toISOString().replace('T', ' ').slice(0, 16),
+              pairAId: winnerPairId,
+              pairBId: 'pair_tbd',
+              pairAName: winnerPairName,
+              pairBName: 'Rival Por Definir',
+              playerA1Id: winnerPlayer1.id,
+              playerA1Name: winnerPlayer1.name,
+              playerA1Avatar: winnerPlayer1.avatar,
+              playerA2Id: winnerPlayer2.id,
+              playerA2Name: winnerPlayer2.name,
+              playerA2Avatar: winnerPlayer2.avatar,
+              playerB1Id: 'usr_tbd1',
+              playerB2Id: 'usr_tbd2',
+              playerB1Name: 'Jugador 1',
+              playerB2Name: 'Jugador 2',
+              playerB1Avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+              playerB2Avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+              status: 'UPCOMING',
+              sets: [{ teamAGames: 0, teamBGames: 0, isTieBreak: false }],
+              currentGame: { teamAPoints: '0', teamBPoints: '0', serverTeam: 'A' },
+              currentSetIndex: 0,
+              elapsedTimeSec: 0,
+              goldenPoint: true,
+              setsToWin: 2,
+              roundName: targetRoundName,
+            };
+            nextMatchesList = [newNextMatch, ...nextMatchesList];
+          }
+        }
       }
+
+      const newNotif: NotificationItem = {
+        id: 'notif_' + Date.now(),
+        title: '🏆 ¡Partido Finalizado y Torneo Reajustado!',
+        body: notificationBody,
+        timestamp: 'Ahora',
+        read: false,
+        type: 'MATCH',
+        linkId: updatedMatch.id,
+      };
+      setNotifications((prev) => [newNotif, ...prev]);
+
+      const finishAudit: AuditLog = {
+        id: 'audit_' + Date.now(),
+        adminName: user.name + ' ' + user.surname,
+        adminEmail: user.email,
+        action: 'PARTIDO_FINALIZADO',
+        target: `Partido ${updatedMatch.id} (${updatedMatch.roundName || 'Eliminatoria'})`,
+        details: `Ganador: ${winnerPairName} vs ${loserPairName}. Puntos asignados en ranking y cuadro reajustado.`,
+        timestamp: new Date().toLocaleString(),
+      };
+      setAuditLogs((prev) => [finishAudit, ...prev]);
     }
 
     setMatches(nextMatchesList);
