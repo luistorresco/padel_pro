@@ -800,6 +800,8 @@ def migrate_schema(conn):
             "sets_to_win": "ALTER TABLE matches ADD COLUMN sets_to_win INT NOT NULL DEFAULT 2",
             "round_name": "ALTER TABLE matches ADD COLUMN round_name VARCHAR(100) NULL",
             "deleted_at": "ALTER TABLE matches ADD COLUMN deleted_at DATETIME NULL",
+            "created_at": "ALTER TABLE matches ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "ALTER TABLE matches ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
         }
         for col, stmt in match_alters.items():
             if col not in match_cols:
