@@ -615,6 +615,21 @@ def seed_data(conn, data):
 
     seed_roles(conn)
 
+    auth_users = data.get("auth_users", [])
+    for auth_user in auth_users:
+        hashed = bcrypt.hashpw(auth_user["password"].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        conn.execute(text("""
+            INSERT INTO users_auth (user_id, email, hashed_password)
+            VALUES (:user_id, :email, :hashed_password)
+            ON DUPLICATE KEY UPDATE
+                email = VALUES(email),
+                hashed_password = VALUES(hashed_password)
+        """), {
+            "user_id": auth_user["id"],
+            "email": auth_user["email"],
+            "hashed_password": hashed,
+        })
+
 
 def init_db():
     with engine.begin() as conn:
