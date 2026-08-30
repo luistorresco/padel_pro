@@ -525,7 +525,7 @@ def _build_tournament_response(t: dict) -> dict:
             rules = {}
     if not rules or not isinstance(rules, dict):
         rules = {}
-    if "pointsDistribution" not in rules:
+    if "pointsDistribution" not in rules or not isinstance(rules.get("pointsDistribution"), dict):
         rules["pointsDistribution"] = {
             "champion": 1000,
             "runnerUp": 600,
@@ -533,6 +533,14 @@ def _build_tournament_response(t: dict) -> dict:
             "quarterFinals": 180,
             "groupStage": 90,
         }
+    if "goldenPoint" not in rules:
+        rules["goldenPoint"] = False
+    if "tieBreakAt" not in rules:
+        rules["tieBreakAt"] = 6
+    if "finalSetTieBreak" not in rules:
+        rules["finalSetTieBreak"] = False
+    if "setsToWin" not in rules:
+        rules["setsToWin"] = 2
     return {
         "id": t.get("id"),
         "name": t.get("name") or "",
@@ -721,19 +729,41 @@ def update_court(court_id: str, court: dict, payload: dict = Depends(require_adm
 def get_matches():
     with engine.connect() as conn:
         result = conn.execute(text("""
-            SELECT m.*,
-                COALESCE(t.name, '') AS tournament_name,
-                COALESCE(c.name, '') AS court_name,
-                COALESCE(pa.name, '') AS pair_a_name,
-                COALESCE(pb.name, '') AS pair_b_name,
-                COALESCE(ua1.name, '') AS player_a1_name,
-                COALESCE(ua2.name, '') AS player_a2_name,
-                COALESCE(ub1.name, '') AS player_b1_name,
-                COALESCE(ub2.name, '') AS player_b2_name,
-                COALESCE(ua1.avatar, '') AS player_a1_avatar,
-                COALESCE(ua2.avatar, '') AS player_a2_avatar,
-                COALESCE(ub1.avatar, '') AS player_b1_avatar,
-                COALESCE(ub2.avatar, '') AS player_b2_avatar
+            SELECT m.id,
+                m.tournament_id AS tournamentId,
+                m.round_id AS roundId,
+                m.business_id AS businessId,
+                m.court_id AS courtId,
+                m.created_by AS createdBy,
+                m.pair_a_id AS pairAId,
+                m.pair_b_id AS pairBId,
+                m.date_time AS dateTime,
+                m.status,
+                m.visibility,
+                m.sets,
+                m.current_set_index AS currentSetIndex,
+                m.winner_pair_id AS winnerPairId,
+                m.winner_team AS winnerTeam,
+                m.start_time_ms AS startTimeMs,
+                m.elapsed_time_sec AS elapsedTimeSec,
+                m.golden_point AS goldenPoint,
+                m.sets_to_win AS setsToWin,
+                m.round_name AS roundName,
+                m.created_at AS createdAt,
+                m.updated_at AS updatedAt,
+                m.deleted_at AS deletedAt,
+                t.name AS tournamentName,
+                c.name AS courtName,
+                pa.name AS pairAName,
+                pb.name AS pairBName,
+                ua1.name AS playerA1Name,
+                ua2.name AS playerA2Name,
+                ub1.name AS playerB1Name,
+                ub2.name AS playerB2Name,
+                ua1.avatar AS playerA1Avatar,
+                ua2.avatar AS playerA2Avatar,
+                ub1.avatar AS playerB1Avatar,
+                ub2.avatar AS playerB2Avatar
             FROM matches m
             LEFT JOIN tournaments t ON m.tournament_id = t.id
             LEFT JOIN courts c ON m.court_id = c.id
@@ -759,19 +789,41 @@ def get_matches():
 def get_match(match_id: str):
     with engine.connect() as conn:
         result = conn.execute(text("""
-            SELECT m.*,
-                COALESCE(t.name, '') AS tournament_name,
-                COALESCE(c.name, '') AS court_name,
-                COALESCE(pa.name, '') AS pair_a_name,
-                COALESCE(pb.name, '') AS pair_b_name,
-                COALESCE(ua1.name, '') AS player_a1_name,
-                COALESCE(ua2.name, '') AS player_a2_name,
-                COALESCE(ub1.name, '') AS player_b1_name,
-                COALESCE(ub2.name, '') AS player_b2_name,
-                COALESCE(ua1.avatar, '') AS player_a1_avatar,
-                COALESCE(ua2.avatar, '') AS player_a2_avatar,
-                COALESCE(ub1.avatar, '') AS player_b1_avatar,
-                COALESCE(ub2.avatar, '') AS player_b2_avatar
+            SELECT m.id,
+                m.tournament_id AS tournamentId,
+                m.round_id AS roundId,
+                m.business_id AS businessId,
+                m.court_id AS courtId,
+                m.created_by AS createdBy,
+                m.pair_a_id AS pairAId,
+                m.pair_b_id AS pairBId,
+                m.date_time AS dateTime,
+                m.status,
+                m.visibility,
+                m.sets,
+                m.current_set_index AS currentSetIndex,
+                m.winner_pair_id AS winnerPairId,
+                m.winner_team AS winnerTeam,
+                m.start_time_ms AS startTimeMs,
+                m.elapsed_time_sec AS elapsedTimeSec,
+                m.golden_point AS goldenPoint,
+                m.sets_to_win AS setsToWin,
+                m.round_name AS roundName,
+                m.created_at AS createdAt,
+                m.updated_at AS updatedAt,
+                m.deleted_at AS deletedAt,
+                t.name AS tournamentName,
+                c.name AS courtName,
+                pa.name AS pairAName,
+                pb.name AS pairBName,
+                ua1.name AS playerA1Name,
+                ua2.name AS playerA2Name,
+                ub1.name AS playerB1Name,
+                ub2.name AS playerB2Name,
+                ua1.avatar AS playerA1Avatar,
+                ua2.avatar AS playerA2Avatar,
+                ub1.avatar AS playerB1Avatar,
+                ub2.avatar AS playerB2Avatar
             FROM matches m
             LEFT JOIN tournaments t ON m.tournament_id = t.id
             LEFT JOIN courts c ON m.court_id = c.id

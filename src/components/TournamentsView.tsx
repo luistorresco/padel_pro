@@ -153,16 +153,16 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
 
                 <span
                   className={`text-[10px] font-mono-stats font-bold px-2.5 py-1 rounded-full uppercase border ${
-                    tour.status === 'ACTIVE'
+                    tour.status === 'ACTIVE' || tour.status === 'IN_PROGRESS'
                       ? 'bg-[#c3f400]/10 text-[#c3f400] border-[#c3f400]/30'
-                      : tour.status === 'REGISTRATION'
+                      : tour.status === 'REGISTRATION' || tour.status === 'OPEN'
                       ? 'bg-[#deed2e]/10 text-[#deed2e] border-[#deed2e]/30'
                       : 'bg-[#282a2e] text-[#c4c9ac] border-[#333539]'
                   }`}
                 >
-                  {tour.status === 'ACTIVE'
+                  {tour.status === 'ACTIVE' || tour.status === 'IN_PROGRESS'
                     ? 'EN CURSO'
-                    : tour.status === 'REGISTRATION'
+                    : tour.status === 'REGISTRATION' || tour.status === 'OPEN'
                     ? 'INSCRIPCION'
                     : 'PROXIMO'}
                 </span>
@@ -200,7 +200,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                   <span>Ver Clasificación & Cuadro</span>
                 </button>
 
-                {tour.status === 'REGISTRATION' && pairs.length > 0 && (
+                {(tour.status === 'REGISTRATION' || tour.status === 'OPEN') && pairs.length > 0 && (
                   <button
                     onClick={() => setRegisteringTournamentId(tour.id)}
                     className="bg-[#c3f400] hover:bg-[#abd600] text-[#161e00] font-mono-stats text-[12px] font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1"
@@ -337,14 +337,14 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                             <span className="text-[#c3f400] font-bold uppercase">{m.roundName || 'Fase de Grupos'}</span>
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                m.status === 'LIVE'
+                                m.status === 'LIVE' || m.status === 'IN_PROGRESS'
                                   ? 'bg-[#FF3B30] text-white'
                                   : m.status === 'FINISHED'
                                   ? 'bg-[#c3f400]/20 text-[#c3f400]'
                                   : 'bg-[#282a2e] text-[#8e9379]'
                               }`}
                             >
-                              {m.status === 'LIVE' ? '🔴 En Vivo' : m.status === 'FINISHED' ? '✅ Finalizado' : '⏳ Próximo'}
+                              {m.status === 'LIVE' || m.status === 'IN_PROGRESS' ? '🔴 En Vivo' : m.status === 'FINISHED' ? '✅ Finalizado' : '⏳ Próximo'}
                             </span>
                           </div>
 

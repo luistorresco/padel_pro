@@ -7,7 +7,7 @@ interface LiveMatchCardProps {
 }
 
 export const LiveMatchCard: React.FC<LiveMatchCardProps> = ({ match, onOpenMatch }) => {
-  const isLive = match.status === 'LIVE';
+  const isLive = match.status === 'LIVE' || match.status === 'IN_PROGRESS';
 
   return (
     <div className="bg-[#1e2023] rounded-xl p-4 flex flex-col gap-3.5 border border-[#333539] shadow-xl relative overflow-hidden group hover:border-[#c3f400]/50 transition-all">

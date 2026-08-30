@@ -39,6 +39,17 @@ import { LoginScreen } from './components/LoginScreen';
 import { api, API_BASE_NORMALIZED, setAuthToken } from './api';
 import { createInitialGameScore } from './domain/scoringEngine';
 
+const EMPTY_STATS = {
+  pointsWon: 0, winners: 0, smashes: 0, smashesWon: 0, voleasWon: 0,
+  bandejas: 0, viboras: 0, remates: 0, netPointsWon: 0, touches: 0,
+  shots: 0, serves: 0, firstServes: 0, secondServes: 0, aces: 0,
+  doubleFaults: 0, breakPoints: 0, breakPointsWon: 0, recoveries: 0,
+  globos: 0, devoluciones: 0, pointsSaved: 0, unforcedErrors: 0,
+  distanceKm: 0, timePlayedMin: 0, avgSpeedKmh: 0, movesCount: 0,
+  matchesPlayed: 0, matchesWon: 0, matchesLost: 0, setsWon: 0, setsLost: 0,
+  gamesWon: 0, gamesLost: 0,
+};
+
 export default function App() {
   // Global Application State
   const [role, setRole] = useState<UserRole>('ADMIN');
@@ -62,6 +73,30 @@ export default function App() {
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState<boolean>(false);
   const [showMenuDrawer, setShowMenuDrawer] = useState<boolean>(false);
   const [showUnitTestModal, setShowUnitTestModal] = useState<boolean>(false);
+
+  const normalizeTournamentStatus = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS':
+        return 'ACTIVE';
+      case 'OPEN':
+        return 'REGISTRATION';
+      case 'DRAFT':
+        return 'UPCOMING';
+      default:
+        return status;
+    }
+  };
+
+  const normalizeMatchStatus = (status: string) => {
+    switch (status) {
+      case 'IN_PROGRESS':
+        return 'LIVE';
+      case 'SCHEDULED':
+        return 'UPCOMING';
+      default:
+        return status;
+    }
+  };
 
   // Load initial data from backend
   useEffect(() => {
@@ -88,40 +123,86 @@ export default function App() {
           }
         }
 
-        const [users, pairsData, tournamentsData, matchesData, courtsData, auditLogsData, notificationsData] = await Promise.all([
+        const [usersResult, pairsData, tournamentsData, matchesData, courtsData] = await Promise.all([
           api.getUsers(),
           api.getPairs(),
           api.getTournaments(),
           api.getMatches(),
           api.getCourts(),
-          api.getAuditLogs(),
-          api.getNotifications(),
         ]);
 
         if (cancelled) return;
 
-        if (users && users.length > 0) {
-          setPlayers(users);
+        if (usersResult && usersResult.length > 0) {
+          const normalizedUsers = usersResult.map((u: any) => ({
+            ...u,
+            stats: u.stats && typeof u.stats === 'object' ? u.stats : EMPTY_STATS,
+            avatar: u.avatar || '',
+            level: u.level || 'Intermedio',
+            position: u.position || 'Drive (Derecha)',
+            dominantHand: u.dominantHand || 'Derecha',
+          }));
+          setPlayers(normalizedUsers as User[]);
           if (!currentUser) {
             const fallbackUser = await api.getCurrentUser();
             if (fallbackUser) {
               const typedFallback = fallbackUser as User;
-              setUser(typedFallback);
+              setUser({
+                ...typedFallback,
+                stats: typedFallback.stats && typeof typedFallback.stats === 'object' ? typedFallback.stats : EMPTY_STATS,
+                avatar: typedFallback.avatar || '',
+                level: typedFallback.level || 'Intermedio',
+                position: typedFallback.position || 'Drive (Derecha)',
+                dominantHand: typedFallback.dominantHand || 'Derecha',
+              });
             }
           }
         }
         if (pairsData) setPairs(pairsData as Pair[]);
-        if (tournamentsData) setTournaments(tournamentsData as Tournament[]);
+        if (tournamentsData) {
+          const normalizedTournaments = tournamentsData.map((t: any) => ({
+            ...t,
+            status: normalizeTournamentStatus(t.status),
+            startDate: t.start_date || t.startDate || '',
+            endDate: t.end_date || t.endDate || '',
+          }));
+          setTournaments(normalizedTournaments as Tournament[]);
+        }
         if (matchesData) {
           const normalizedMatches = (matchesData as Match[]).map((m) => ({
             ...m,
-            currentGame: m.currentGame || createInitialGameScore('A'),
+            status: normalizeMatchStatus(m.status),
+            currentGame: m.currentGame && typeof m.currentGame === 'object' && Object.keys(m.currentGame).length > 0
+              ? m.currentGame
+              : createInitialGameScore('A'),
+            playerA1Name: m.playerA1Name || 'Jugador 1',
+            playerA2Name: m.playerA2Name || 'Jugador 2',
+            playerB1Name: m.playerB1Name || 'Jugador 3',
+            playerB2Name: m.playerB2Name || 'Jugador 4',
+            playerA1Avatar: m.playerA1Avatar || '',
+            playerA2Avatar: m.playerA2Avatar || '',
+            playerB1Avatar: m.playerB1Avatar || '',
+            playerB2Avatar: m.playerB2Avatar || '',
+            pairAName: m.pairAName || 'Pareja A',
+            pairBName: m.pairBName || 'Pareja B',
+            courtName: m.courtName || 'Pista por definir',
+            roundName: m.roundName || 'Eliminatoria',
           }));
           setMatches(normalizedMatches);
         }
         if (courtsData) setCourts(courtsData as Court[]);
-        if (auditLogsData) setAuditLogs(auditLogsData as AuditLog[]);
-        if (notificationsData) setNotifications(notificationsData as NotificationItem[]);
+
+        try {
+          const [auditLogsData, notificationsData] = await Promise.all([
+            api.getAuditLogs(),
+            api.getNotifications(),
+          ]);
+          if (cancelled) return;
+          if (auditLogsData) setAuditLogs(auditLogsData as AuditLog[]);
+          if (notificationsData) setNotifications(notificationsData as NotificationItem[]);
+        } catch {
+          // Non-critical data can fail without breaking the whole app
+        }
       } catch (error) {
         console.warn('[App] Backend unavailable, using local fallback data.', error);
         if (!cancelled) {

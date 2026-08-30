@@ -33,7 +33,7 @@ async function handleResponse(response: Response) {
 export const api = {
   getUsers: () => fetch(`${API_BASE_NORMALIZED}/api/users`, { headers: mergeHeaders() }).then(handleResponse),
   getUser: (userId: string) => fetch(`${API_BASE_NORMALIZED}/api/users/${userId}`, { headers: mergeHeaders() }).then(handleResponse),
-  getCurrentUser: () => fetch(`${API_BASE_NORMALIZED}/api/users/me`).then(handleResponse),
+  getCurrentUser: () => fetch(`${API_BASE_NORMALIZED}/api/users/me`, { headers: mergeHeaders() }).then(handleResponse),
   createUser: (user: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/users`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
