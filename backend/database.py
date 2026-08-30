@@ -540,6 +540,69 @@ def seed_data(conn, data):
             except Exception:
                 pass
 
+    # Seed tournament_pairs from mock data (only if users/pairs exist)
+    tournament_pairs_mock = data.get("tournament_pairs", [])
+    for t in tournaments:
+        pair_ids_for_tournament = t.get("registered_pair_ids", [])
+        if not pair_ids_for_tournament:
+            continue
+        for pid in pair_ids_for_tournament:
+            # Verify pair exists before inserting
+            pair_exists = conn.execute(text("SELECT COUNT(*) as cnt FROM pairs WHERE id = :id"), {"id": pid}).mappings().first()
+            if not pair_exists or pair_exists["cnt"] == 0:
+                continue
+            try:
+                conn.execute(text("""
+                    INSERT INTO tournament_pairs (tournament_id, pair_id, status)
+                    VALUES (:tid, :pid, 'REGISTERED')
+                    ON DUPLICATE KEY UPDATE status = VALUES(status)
+                """), {"tid": t["id"], "pid": pid})
+            except Exception:
+                pass
+
+    # Seed tournament_players from mock data (only if users exist)
+    for t in tournaments:
+        user_ids_for_tournament = t.get("registered_user_ids", [])
+        if not user_ids_for_tournament:
+            continue
+        for uid in user_ids_for_tournament:
+            user_exists = conn.execute(text("SELECT COUNT(*) as cnt FROM users WHERE id = :id"), {"id": uid}).mappings().first()
+            if not user_exists or user_exists["cnt"] == 0:
+                continue
+            try:
+                conn.execute(text("""
+                    INSERT INTO tournament_players (tournament_id, user_id, status)
+                    VALUES (:tid, :uid, 'REGISTERED')
+                    ON DUPLICATE KEY UPDATE status = VALUES(status)
+                """), {"tid": t["id"], "uid": uid})
+            except Exception:
+                pass
+
+    # Seed match_players from pair composition (only if pairs have valid players)
+    for m in matches:
+        match_id = m["id"]
+        # Get pair_a_id and pair_b_id from match data
+        match_row = conn.execute(text("SELECT pair_a_id, pair_b_id FROM matches WHERE id = :id"), {"id": match_id}).mappings().first()
+        if not match_row:
+            continue
+        for team, pair_id in [("A", match_row["pair_a_id"]), ("B", match_row["pair_b_id"])]:
+            if not pair_id:
+                continue
+            pair = conn.execute(text("SELECT player1_id, player2_id FROM pairs WHERE id = :id"), {"id": pair_id}).mappings().first()
+            if not pair:
+                continue
+            for idx, uid in enumerate([pair["player1_id"], pair["player2_id"]], 1):
+                if not uid:
+                    continue
+                try:
+                    conn.execute(text("""
+                        INSERT INTO match_players (match_id, user_id, pair_id, team, player_number)
+                        VALUES (:mid, :uid, :pid, :team, :pn)
+                        ON DUPLICATE KEY UPDATE pair_id = VALUES(pair_id), team = VALUES(team)
+                    """), {"mid": match_id, "uid": uid, "pid": pair_id, "team": team, "pn": idx})
+                except Exception:
+                    pass
+
     for pair in pairs:
         try:
             conn.execute(text("""
@@ -760,6 +823,62 @@ def seed_data(conn, data):
             pass
 
 
+def _constraint_exists(conn, table_name, constraint_name):
+    try:
+        result = conn.execute(text("""
+            SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = :table_name
+            AND CONSTRAINT_NAME = :constraint_name
+        """), {"table_name": table_name, "constraint_name": constraint_name})
+        row = result.mappings().first()
+        return row and row["cnt"] > 0
+    except Exception:
+        return False
+
+
+def _add_fk_safe(conn, table_name, constraint_name, column_name, ref_table, ref_column):
+    if _constraint_exists(conn, table_name, constraint_name):
+        return
+    try:
+        conn.execute(text(f"""
+            ALTER TABLE {table_name}
+            ADD CONSTRAINT {constraint_name}
+            FOREIGN KEY ({column_name}) REFERENCES {ref_table}({ref_column})
+            ON DELETE CASCADE ON UPDATE CASCADE
+        """))
+    except Exception:
+        pass
+
+
+def _add_fk_safe_set_null(conn, table_name, constraint_name, column_name, ref_table, ref_column):
+    if _constraint_exists(conn, table_name, constraint_name):
+        return
+    try:
+        conn.execute(text(f"""
+            ALTER TABLE {table_name}
+            ADD CONSTRAINT {constraint_name}
+            FOREIGN KEY ({column_name}) REFERENCES {ref_table}({ref_column})
+            ON DELETE SET NULL ON UPDATE CASCADE
+        """))
+    except Exception:
+        pass
+
+
+def _add_fk_safe_restrict(conn, table_name, constraint_name, column_name, ref_table, ref_column):
+    if _constraint_exists(conn, table_name, constraint_name):
+        return
+    try:
+        conn.execute(text(f"""
+            ALTER TABLE {table_name}
+            ADD CONSTRAINT {constraint_name}
+            FOREIGN KEY ({column_name}) REFERENCES {ref_table}({ref_column})
+            ON DELETE RESTRICT ON UPDATE CASCADE
+        """))
+    except Exception:
+        pass
+
+
 def migrate_schema(conn):
     try:
         cols = [
@@ -801,6 +920,89 @@ def migrate_schema(conn):
                 pass
     except Exception:
         pass
+
+    # Add FOREIGN KEY constraints safely
+    # users_auth -> users
+    _add_fk_safe(conn, "users_auth", "fk_users_auth_user", "user_id", "users", "id")
+
+    # user_roles -> users, roles
+    _add_fk_safe(conn, "user_roles", "fk_user_roles_user", "user_id", "users", "id")
+    _add_fk_safe(conn, "user_roles", "fk_user_roles_role", "role_id", "roles", "id")
+
+    # profiles -> users
+    _add_fk_safe(conn, "profiles", "fk_profiles_user", "user_id", "users", "id")
+
+    # privacy_settings -> users
+    _add_fk_safe(conn, "privacy_settings", "fk_privacy_user", "user_id", "users", "id")
+
+    # businesses -> users (created_by)
+    _add_fk_safe_set_null(conn, "businesses", "fk_businesses_creator", "created_by", "users", "id")
+
+    # business_users -> businesses, users
+    _add_fk_safe(conn, "business_users", "fk_bu_business", "business_id", "businesses", "id")
+    _add_fk_safe(conn, "business_users", "fk_bu_user", "user_id", "users", "id")
+
+    # gesture_config -> businesses
+    _add_fk_safe(conn, "gesture_config", "fk_gesture_business", "business_id", "businesses", "id")
+
+    # courts -> businesses
+    _add_fk_safe(conn, "courts", "fk_courts_business", "business_id", "businesses", "id")
+
+    # pairs -> users (player1_id, player2_id)
+    _add_fk_safe(conn, "pairs", "fk_pairs_player1", "player1_id", "users", "id")
+    _add_fk_safe(conn, "pairs", "fk_pairs_player2", "player2_id", "users", "id")
+    _add_fk_safe_set_null(conn, "pairs", "fk_pairs_creator", "created_by", "users", "id")
+
+    # tournaments -> businesses, users
+    _add_fk_safe_set_null(conn, "tournaments", "fk_tournaments_business", "business_id", "businesses", "id")
+    _add_fk_safe_set_null(conn, "tournaments", "fk_tournaments_creator", "created_by", "users", "id")
+
+    # tournament_categories -> tournaments
+    _add_fk_safe(conn, "tournament_categories", "fk_tc_tournament", "tournament_id", "tournaments", "id")
+
+    # tournament_rounds -> tournaments, tournament_categories
+    _add_fk_safe(conn, "tournament_rounds", "fk_tr_tournament", "tournament_id", "tournaments", "id")
+    _add_fk_safe_set_null(conn, "tournament_rounds", "fk_tr_category", "category_id", "tournament_categories", "id")
+
+    # tournament_pairs -> tournaments, pairs
+    _add_fk_safe(conn, "tournament_pairs", "fk_tp_tournament", "tournament_id", "tournaments", "id")
+    _add_fk_safe(conn, "tournament_pairs", "fk_tp_pair", "pair_id", "pairs", "id")
+    _add_fk_safe_set_null(conn, "tournament_pairs", "fk_tp_category", "category_id", "tournament_categories", "id")
+
+    # tournament_players -> tournaments, users
+    _add_fk_safe(conn, "tournament_players", "fk_tplayers_tournament", "tournament_id", "tournaments", "id")
+    _add_fk_safe(conn, "tournament_players", "fk_tplayers_user", "user_id", "users", "id")
+    _add_fk_safe_set_null(conn, "tournament_players", "fk_tplayers_category", "category_id", "tournament_categories", "id")
+
+    # matches -> tournaments, courts, pairs, users (created_by)
+    _add_fk_safe_set_null(conn, "matches", "fk_matches_tournament", "tournament_id", "tournaments", "id")
+    _add_fk_safe_set_null(conn, "matches", "fk_matches_court", "court_id", "courts", "id")
+    _add_fk_safe_set_null(conn, "matches", "fk_matches_pair_a", "pair_a_id", "pairs", "id")
+    _add_fk_safe_set_null(conn, "matches", "fk_matches_pair_b", "pair_b_id", "pairs", "id")
+    _add_fk_safe_set_null(conn, "matches", "fk_matches_winner", "winner_pair_id", "pairs", "id")
+    _add_fk_safe_set_null(conn, "matches", "fk_matches_creator", "created_by", "users", "id")
+
+    # match_players -> matches, users, pairs
+    _add_fk_safe(conn, "match_players", "fk_mp_match", "match_id", "matches", "id")
+    _add_fk_safe(conn, "match_players", "fk_mp_user", "user_id", "users", "id")
+    _add_fk_safe_set_null(conn, "match_players", "fk_mp_pair", "pair_id", "pairs", "id")
+
+    # match_events -> matches
+    _add_fk_safe(conn, "match_events", "fk_me_match", "match_id", "matches", "id")
+    _add_fk_safe_set_null(conn, "match_events", "fk_me_winning_pair", "winning_pair_id", "pairs", "id")
+    _add_fk_safe_set_null(conn, "match_events", "fk_me_player", "player_id", "users", "id")
+
+    # user_points -> users
+    _add_fk_safe(conn, "user_points", "fk_up_user", "user_id", "users", "id")
+    _add_fk_safe_set_null(conn, "user_points", "fk_up_match", "match_id", "matches", "id")
+    _add_fk_safe_set_null(conn, "user_points", "fk_up_tournament", "tournament_id", "tournaments", "id")
+
+    # notifications -> users
+    _add_fk_safe(conn, "notifications", "fk_notif_user", "user_id", "users", "id")
+
+    # audit_logs -> businesses, users
+    _add_fk_safe_set_null(conn, "audit_logs", "fk_audit_business", "business_id", "businesses", "id")
+    _add_fk_safe_set_null(conn, "audit_logs", "fk_audit_user", "user_id", "users", "id")
 
     try:
         user_cols = [
@@ -884,3 +1086,173 @@ def init_db():
             print("[db] Database already contains data. Skipping seed.")
     print("[db] Database initialized successfully.")
     return engine
+
+
+# ==================== VALIDATION HELPERS ====================
+
+def validate_pair_players_exist(conn, player1_id: str, player2_id: str) -> tuple[bool, str]:
+    """Ensure both players referenced in a pair exist in users table."""
+    r = conn.execute(text("SELECT COUNT(*) as cnt FROM users WHERE id = :id"), {"id": player1_id}).mappings().first()
+    if not r or r["cnt"] == 0:
+        return False, f"Player1 '{player1_id}' does not exist in users"
+    r = conn.execute(text("SELECT COUNT(*) as cnt FROM users WHERE id = :id"), {"id": player2_id}).mappings().first()
+    if not r or r["cnt"] == 0:
+        return False, f"Player2 '{player2_id}' does not exist in users"
+    if player1_id == player2_id:
+        return False, "Pair must have two different players"
+    return True, ""
+
+
+def validate_match_pair_references(conn, pair_a_id: str | None, pair_b_id: str | None) -> tuple[bool, str]:
+    """Validate that referenced pairs exist and contain valid players."""
+    for label, pid in [("pair_a_id", pair_a_id), ("pair_b_id", pair_b_id)]:
+        if not pid:
+            continue
+        r = conn.execute(text("SELECT player1_id, player2_id FROM pairs WHERE id = :id"), {"id": pid}).mappings().first()
+        if not r:
+            return False, f"Pair '{pid}' ({label}) does not exist"
+        valid, msg = validate_pair_players_exist(conn, r["player1_id"], r["player2_id"])
+        if not valid:
+            return False, f"Invalid players in {label} '{pid}': {msg}"
+    return True, ""
+
+
+def sync_match_players_from_pairs(conn, match_id: str) -> list[dict]:
+    """Rebuild match_players for a match from its pair_a_id/pair_b_id. Returns inserted players."""
+    match = conn.execute(text("SELECT pair_a_id, pair_b_id FROM matches WHERE id = :id"), {"id": match_id}).mappings().first()
+    if not match:
+        return []
+
+    # Remove existing match_players (will be rebuilt)
+    conn.execute(text("DELETE FROM match_players WHERE match_id = :id"), {"id": match_id})
+
+    inserted = []
+    team_mapping = [
+        ("A", match["pair_a_id"]),
+        ("B", match["pair_b_id"]),
+    ]
+    for team, pair_id in team_mapping:
+        if not pair_id:
+            continue
+        pair = conn.execute(text("SELECT player1_id, player2_id FROM pairs WHERE id = :id"), {"id": pair_id}).mappings().first()
+        if not pair:
+            continue
+        for idx, uid in enumerate([pair["player1_id"], pair["player2_id"]], 1):
+            if not uid:
+                continue
+            conn.execute(text("""
+                INSERT INTO match_players (match_id, user_id, pair_id, team, player_number)
+                VALUES (:mid, :uid, :pid, :team, :pn)
+                ON DUPLICATE KEY UPDATE pair_id = VALUES(pair_id), team = VALUES(team)
+            """), {"mid": match_id, "uid": uid, "pid": pair_id, "team": team, "pn": idx})
+            inserted.append({"user_id": uid, "pair_id": pair_id, "team": team, "player_number": idx})
+    return inserted
+
+
+def get_match_players(conn, match_id: str) -> list[dict]:
+    """Get enriched match_players data with user info."""
+    rows = conn.execute(text("""
+        SELECT mp.match_id, mp.user_id, mp.pair_id, mp.team, mp.player_number,
+               u.name, u.surname, u.avatar, u.username
+        FROM match_players mp
+        JOIN users u ON mp.user_id = u.id
+        WHERE mp.match_id = :mid
+        ORDER BY mp.team, mp.player_number
+    """), {"mid": match_id}).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def get_tournament_full(conn, tournament_id: str) -> dict | None:
+    """Get fully normalized tournament with categories, rounds, pairs, players, and matches."""
+    t = conn.execute(text("SELECT * FROM tournaments WHERE id = :id"), {"id": tournament_id}).mappings().first()
+    if not t:
+        return None
+    t = dict(t)
+
+    categories = conn.execute(text("""
+        SELECT * FROM tournament_categories WHERE tournament_id = :tid ORDER BY name
+    """), {"tid": tournament_id}).mappings().all()
+    t["categories"] = [dict(c) for c in categories]
+
+    rounds = conn.execute(text("""
+        SELECT * FROM tournament_rounds WHERE tournament_id = :tid ORDER BY round_number
+    """), {"tid": tournament_id}).mappings().all()
+    t["rounds"] = [dict(r) for r in rounds]
+
+    # Registered pairs with player details
+    tp_rows = conn.execute(text("""
+        SELECT tp.*, p.name as pair_name, p.player1_id, p.player2_id,
+               u1.name as p1_name, u1.surname as p1_surname, u1.avatar as p1_avatar,
+               u2.name as p2_name, u2.surname as p2_surname, u2.avatar as p2_avatar
+        FROM tournament_pairs tp
+        JOIN pairs p ON tp.pair_id = p.id
+        JOIN users u1 ON p.player1_id = u1.id
+        JOIN users u2 ON p.player2_id = u2.id
+        WHERE tp.tournament_id = :tid
+        ORDER BY tp.seed
+    """), {"tid": tournament_id}).mappings().all()
+    t["registered_pairs"] = [dict(r) for r in tp_rows]
+
+    # Registered players with user details
+    tpl_rows = conn.execute(text("""
+        SELECT tpl.*, u.name, u.surname, u.username, u.avatar, u.points
+        FROM tournament_players tpl
+        JOIN users u ON tpl.user_id = u.id
+        WHERE tpl.tournament_id = :tid
+        ORDER BY u.surname
+    """), {"tid": tournament_id}).mappings().all()
+    t["registered_players"] = [dict(r) for r in tpl_rows]
+
+    # Tournament matches
+    match_rows = conn.execute(text("""
+        SELECT m.id, m.court_id, m.pair_a_id, m.pair_b_id, m.round_name,
+               m.date_time, m.status, m.sets, m.winner_team, m.current_set_index,
+               m.sets_to_win, m.golden_point, m.round_id,
+               pa.name as pair_a_name, pb.name as pair_b_name
+        FROM matches m
+        LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+        LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+        WHERE m.tournament_id = :tid
+        ORDER BY m.date_time
+    """), {"tid": tournament_id}).mappings().all()
+    matches = []
+    for r in match_rows:
+        m = dict(r)
+        if isinstance(m.get("sets"), str):
+            m["sets"] = json.loads(m["sets"])
+        matches.append(m)
+    t["matches"] = matches
+
+    return t
+
+
+def get_pair_with_users(conn, pair_id: str) -> dict | None:
+    """Get pair with full user details."""
+    row = conn.execute(text("""
+        SELECT p.*, u1.name as p1_name, u1.surname as p1_surname, u1.avatar as p1_avatar,
+               u1.username as p1_username, u1.level as p1_level, u1.points as p1_points,
+               u2.name as p2_name, u2.surname as p2_surname, u2.avatar as p2_avatar,
+               u2.username as p2_username, u2.level as p2_level, u2.points as p2_points
+        FROM pairs p
+        JOIN users u1 ON p.player1_id = u1.id
+        JOIN users u2 ON p.player2_id = u2.id
+        WHERE p.id = :id
+    """), {"id": pair_id}).mappings().first()
+    return dict(row) if row else None
+
+
+def get_all_pairs_with_users(conn) -> list[dict]:
+    """Get all pairs with full user details."""
+    rows = conn.execute(text("""
+        SELECT p.id, p.name, p.status, p.tournaments_disputed, p.titles_won,
+               p.player1_id, p.player2_id,
+               u1.name as p1_name, u1.surname as p1_surname, u1.avatar as p1_avatar,
+               u1.username as p1_username,
+               u2.name as p2_name, u2.surname as p2_surname, u2.avatar as p2_avatar,
+               u2.username as p2_username
+        FROM pairs p
+        JOIN users u1 ON p.player1_id = u1.id
+        JOIN users u2 ON p.player2_id = u2.id
+        ORDER BY p.created_at
+    """)).mappings().all()
+    return [dict(r) for r in rows]

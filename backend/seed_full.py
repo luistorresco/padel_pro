@@ -29,6 +29,17 @@ if not DATABASE_URL:
 engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 
 
+def _map_match_status(value):
+    if not value:
+        return "SCHEDULED"
+    value = str(value).strip().upper()
+    if value == "LIVE":
+        return "IN_PROGRESS"
+    if value == "UPCOMING":
+        return "SCHEDULED"
+    return value
+
+
 def _map_position(value):
     if not value:
         return "RIGHT"
@@ -70,6 +81,44 @@ def main():
 
     with engine.begin() as conn:
         print("[seed_full] Starting full database seed...")
+
+        # Ensure all users referenced by pairs/matches exist
+        referenced_ids = set()
+        for p in pairs:
+            if p.get("player1_id"):
+                referenced_ids.add(p["player1_id"])
+            if p.get("player2_id"):
+                referenced_ids.add(p["player2_id"])
+        for m in matches:
+            for k in ["player_a1_id", "player_a2_id", "player_b1_id", "player_b2_id"]:
+                if m.get(k):
+                    referenced_ids.add(m[k])
+        existing_ids = {u["id"] for u in users}
+        missing_ids = referenced_ids - existing_ids
+        if missing_ids:
+            print(f"[seed_full] Adding {len(missing_ids)} missing referenced users")
+            for uid in missing_ids:
+                try:
+                    conn.execute(text("""
+                        INSERT INTO users (id, name, surname, username, email, avatar, account_type, status,
+                            level, position, dominant_hand, points)
+                        VALUES (:id, :name, :surname, :username, :email, :avatar, 'USER', 'ACTIVE',
+                            :level, :position, :dominant_hand, :points)
+                        ON DUPLICATE KEY UPDATE name = VALUES(name)
+                    """), {
+                        "id": uid,
+                        "name": uid.replace("usr_", "").replace("_", " ").title(),
+                        "surname": "",
+                        "username": uid,
+                        "email": f"{uid}@padelpro.app",
+                        "avatar": None,
+                        "level": "INTERMEDIATE",
+                        "position": "RIGHT",
+                        "dominant_hand": "RIGHT",
+                        "points": 0,
+                    })
+                except Exception as e:
+                    print(f"[seed_full] Missing user skip {uid}: {e}")
 
         # Create business if none exists
         result = conn.execute(text("SELECT COUNT(*) as cnt FROM businesses"))
@@ -160,6 +209,66 @@ def main():
             except Exception as e:
                 print(f"[seed_full] User points skip {user['id']}: {e}")
 
+        # Seed pairs (must be before tournament_pairs/matches)
+        for pair in pairs:
+            try:
+                conn.execute(text("""
+                    INSERT INTO pairs (id, name, player1_id, player2_id, created_by, status,
+                        tournaments_disputed, titles_won)
+                    VALUES (:id, :name, :player1_id, :player2_id, :created_by, :status,
+                        :tournaments_disputed, :titles_won)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name), player1_id = VALUES(player1_id), player2_id = VALUES(player2_id),
+                        status = VALUES(status), tournaments_disputed = VALUES(tournaments_disputed),
+                        titles_won = VALUES(titles_won)
+                """), {
+                    "id": pair["id"], "name": pair.get("name"),
+                    "player1_id": pair.get("player1_id"), "player2_id": pair.get("player2_id"),
+                    "created_by": pair.get("created_by", pair.get("player1_id")),
+                    "status": pair.get("status", "ACTIVE"),
+                    "tournaments_disputed": pair.get("tournaments_disputed", 0),
+                    "titles_won": pair.get("titles_won", 0),
+                })
+            except Exception as e:
+                print(f"[seed_full] Pair skip {pair['id']}: {e}")
+
+        # Seed matches (must be before match_players/match_events)
+        for m in matches:
+            try:
+                conn.execute(text("""
+                    INSERT INTO matches (id, tournament_id, court_id, date_time, pair_a_id, pair_b_id,
+                        status, sets, current_set_index, winner_pair_id, winner_team,
+                        start_time_ms, elapsed_time_sec, golden_point, sets_to_win, round_name, created_by)
+                    VALUES (:id, :tournament_id, :court_id, :date_time, :pair_a_id, :pair_b_id,
+                        :status, :sets, :current_set_index, :winner_pair_id, :winner_team,
+                        :start_time_ms, :elapsed_time_sec, :golden_point, :sets_to_win, :round_name, :created_by)
+                    ON DUPLICATE KEY UPDATE
+                        tournament_id = VALUES(tournament_id), court_id = VALUES(court_id),
+                        date_time = VALUES(date_time), pair_a_id = VALUES(pair_a_id),
+                        pair_b_id = VALUES(pair_b_id), status = VALUES(status),
+                        sets = VALUES(sets), current_set_index = VALUES(current_set_index),
+                        winner_pair_id = VALUES(winner_pair_id), winner_team = VALUES(winner_team),
+                        start_time_ms = VALUES(start_time_ms), elapsed_time_sec = VALUES(elapsed_time_sec),
+                        golden_point = VALUES(golden_point), sets_to_win = VALUES(sets_to_win),
+                        round_name = VALUES(round_name)
+                """), {
+                    "id": m["id"], "tournament_id": m.get("tournament_id"),
+                    "court_id": m.get("court_id"), "date_time": m.get("date_time"),
+                    "pair_a_id": m.get("pair_a_id"), "pair_b_id": m.get("pair_b_id"),
+                    "status": _map_match_status(m.get("status")),
+                    "sets": json.dumps(m.get("sets", [])),
+                    "current_set_index": m.get("current_set_index", 0),
+                    "winner_pair_id": m.get("winner_pair_id"), "winner_team": m.get("winner_team"),
+                    "start_time_ms": m.get("start_time_ms"),
+                    "elapsed_time_sec": m.get("elapsed_time_sec", 0),
+                    "golden_point": 1 if m.get("golden_point") else 0,
+                    "sets_to_win": m.get("sets_to_win", 2),
+                    "round_name": m.get("round_name"),
+                    "created_by": m.get("created_by", "usr_001"),
+                })
+            except Exception as e:
+                print(f"[seed_full] Match skip {m['id']}: {e}")
+
         # Seed tournament_categories
         for t in tournaments:
             try:
@@ -199,10 +308,16 @@ def main():
                 except Exception as e:
                     print(f"[seed_full] Round skip {t['id']}: {e}")
 
-        # Seed tournament_pairs
+        # Seed tournament_pairs (only for pairs that exist)
         for t in tournaments:
             cat_id = f"cat_{t['id']}"
-            for pair in pairs:
+            registered_pair_ids = t.get("registered_pair_ids", [])
+            for pid in registered_pair_ids:
+                # Verify pair exists
+                pair_check = conn.execute(text("SELECT COUNT(*) as cnt FROM pairs WHERE id = :id"), {"id": pid}).mappings().first()
+                if not pair_check or pair_check["cnt"] == 0:
+                    print(f"[seed_full] Skipping tournament pair {pid} (does not exist)")
+                    continue
                 try:
                     conn.execute(text("""
                         INSERT INTO tournament_pairs (tournament_id, pair_id, category_id, seed, status)
@@ -210,17 +325,22 @@ def main():
                         ON DUPLICATE KEY UPDATE status = VALUES(status)
                     """), {
                         "tournament_id": t["id"],
-                        "pair_id": pair["id"],
+                        "pair_id": pid,
                         "category_id": cat_id,
-                        "seed": pair.get("seed"),
+                        "seed": None,
                     })
                 except Exception as e:
-                    print(f"[seed_full] Tournament pair skip {pair['id']}: {e}")
+                    print(f"[seed_full] Tournament pair skip {pid}: {e}")
 
-        # Seed tournament_players
+        # Seed tournament_players (only for users that exist)
         for t in tournaments:
             cat_id = f"cat_{t['id']}"
-            for user in users:
+            registered_user_ids = t.get("registered_user_ids", [])
+            for uid in registered_user_ids:
+                user_check = conn.execute(text("SELECT COUNT(*) as cnt FROM users WHERE id = :id"), {"id": uid}).mappings().first()
+                if not user_check or user_check["cnt"] == 0:
+                    print(f"[seed_full] Skipping tournament player {uid} (does not exist)")
+                    continue
                 try:
                     conn.execute(text("""
                         INSERT INTO tournament_players (tournament_id, user_id, category_id, status)
@@ -228,39 +348,42 @@ def main():
                         ON DUPLICATE KEY UPDATE status = VALUES(status)
                     """), {
                         "tournament_id": t["id"],
-                        "user_id": user["id"],
+                        "user_id": uid,
                         "category_id": cat_id,
                     })
                 except Exception as e:
-                    print(f"[seed_full] Tournament player skip {user['id']}: {e}")
+                    print(f"[seed_full] Tournament player skip {uid}: {e}")
 
-        # Seed match_players
+        # Seed match_players (derived from match pairs, not from mock data fields)
         for m in matches:
-            team_a_players = [
-                (m.get("player_a1_id"), "A", 1),
-                (m.get("player_a2_id"), "A", 2),
-            ]
-            team_b_players = [
-                (m.get("player_b1_id"), "B", 1),
-                (m.get("player_b2_id"), "B", 2),
-            ]
-            for user_id, team, player_num in team_a_players + team_b_players:
-                if not user_id:
+            match_id = m["id"]
+            # Get actual match data from DB
+            match_row = conn.execute(text("SELECT pair_a_id, pair_b_id FROM matches WHERE id = :id"), {"id": match_id}).mappings().first()
+            if not match_row:
+                continue
+            for team, pair_id in [("A", match_row["pair_a_id"]), ("B", match_row["pair_b_id"])]:
+                if not pair_id:
                     continue
-                try:
-                    conn.execute(text("""
-                        INSERT INTO match_players (match_id, user_id, pair_id, team, player_number)
-                        VALUES (:match_id, :user_id, :pair_id, :team, :player_number)
-                        ON DUPLICATE KEY UPDATE team = VALUES(team)
-                    """), {
-                        "match_id": m["id"],
-                        "user_id": user_id,
-                        "pair_id": m.get("pair_a_id") if team == "A" else m.get("pair_b_id"),
-                        "team": team,
-                        "player_number": player_num,
-                    })
-                except Exception as e:
-                    print(f"[seed_full] Match player skip {user_id}: {e}")
+                pair_row = conn.execute(text("SELECT player1_id, player2_id FROM pairs WHERE id = :id"), {"id": pair_id}).mappings().first()
+                if not pair_row:
+                    continue
+                for idx, uid in enumerate([pair_row["player1_id"], pair_row["player2_id"]], 1):
+                    if not uid:
+                        continue
+                    try:
+                        conn.execute(text("""
+                            INSERT INTO match_players (match_id, user_id, pair_id, team, player_number)
+                            VALUES (:match_id, :user_id, :pair_id, :team, :player_number)
+                            ON DUPLICATE KEY UPDATE team = VALUES(team)
+                        """), {
+                            "match_id": match_id,
+                            "user_id": uid,
+                            "pair_id": pair_id,
+                            "team": team,
+                            "player_number": idx,
+                        })
+                    except Exception as e:
+                        print(f"[seed_full] Match player skip {uid}: {e}")
 
         # Seed match_events
         for m in matches:

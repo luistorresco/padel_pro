@@ -47,7 +47,12 @@ export const PairsView: React.FC<PairsViewProps> = ({
       titlesWon: 0,
     };
 
-    onCreatePair(newPair);
+    onCreatePair({
+      ...newPair,
+      name: newPair.name,
+      player1Id: newPair.player1Id,
+      player2Id: newPair.player2Id,
+    });
     setShowCreateModal(false);
   };
 

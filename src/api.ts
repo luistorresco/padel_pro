@@ -60,9 +60,11 @@ export const api = {
     method: 'DELETE',
     headers: mergeHeaders(),
   }).then(handleResponse),
+  getPairUsers: (pairId: string) => fetch(`${API_BASE_NORMALIZED}/api/pairs/${pairId}`, { headers: mergeHeaders() }).then(handleResponse),
 
   getTournaments: () => fetch(`${API_BASE_NORMALIZED}/api/tournaments`, { headers: mergeHeaders() }).then(handleResponse),
   getTournament: (tournamentId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}`, { headers: mergeHeaders() }).then(handleResponse),
+  getTournamentFull: (tournamentId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/full`, { headers: mergeHeaders() }).then(handleResponse),
   createTournament: (tournament: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/tournaments`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
@@ -103,6 +105,7 @@ export const api = {
 
   getMatches: () => fetch(`${API_BASE_NORMALIZED}/api/matches`, { headers: mergeHeaders() }).then(handleResponse),
   getMatch: (matchId: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}`, { headers: mergeHeaders() }).then(handleResponse),
+  getMatchPlayers: (matchId: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}/players`, { headers: mergeHeaders() }).then(handleResponse),
   createMatch: (match: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/matches`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),

@@ -158,7 +158,7 @@ export default function App() {
 
         if (cancelled) return;
 
-        const extract = <T>(item: PromiseSettledResult<T>): T | undefined =>
+        const extract = (item: PromiseSettledResult<any>): any =>
           item.status === 'fulfilled' ? item.value : undefined;
 
         const users = extract(usersResult);
@@ -194,7 +194,23 @@ export default function App() {
             }
           }
         }
-        if (pairs) setPairs(pairs as Pair[]);
+        if (pairs) {
+          // Backend now returns enriched pairs with player1Name, player2Name etc.
+          // Normalize to ensure consistent format for frontend
+          const normalizedPairs = (pairs as any[]).map((p) => ({
+            ...p,
+            player1Id: p.player1Id || p.player1_id,
+            player2Id: p.player2Id || p.player2_id,
+            player1Name: p.player1Name || p.player1_name || 'Jugador 1',
+            player2Name: p.player2Name || p.player2_name || 'Jugador 2',
+            player1Avatar: p.player1Avatar || p.player1_avatar || '',
+            player2Avatar: p.player2Avatar || p.player2_avatar || '',
+            tournamentsDisputed: p.tournamentsDisputed ?? p.tournaments_disputed ?? 0,
+            titlesWon: p.titlesWon ?? p.titles_won ?? 0,
+            createdAt: p.createdAt || p.created_at || new Date().toISOString(),
+          }));
+          setPairs(normalizedPairs as Pair[]);
+        }
         if (tournaments) {
           const normalizedTournaments = tournaments.map((t: any) => ({
             ...t,

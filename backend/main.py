@@ -9,6 +9,15 @@ from database import init_db, engine, migrate_schema
 from sqlalchemy import text
 from jose import JWTError, jwt
 import bcrypt
+from database import (
+    validate_pair_players_exist,
+    validate_match_pair_references,
+    sync_match_players_from_pairs,
+    get_match_players,
+    get_tournament_full,
+    get_pair_with_users,
+    get_all_pairs_with_users,
+)
 
 DEFAULT_STATS = {
     "pointsWon": 0, "winners": 0, "smashes": 0, "smashesWon": 0, "voleasWon": 0,
@@ -153,10 +162,12 @@ def api_info():
             "/api/pairs/{pair_id}",
             "/api/tournaments",
             "/api/tournaments/{tournament_id}",
+            "/api/tournaments/{tournament_id}/full",
             "/api/courts",
             "/api/courts/{court_id}",
             "/api/matches",
             "/api/matches/{match_id}",
+            "/api/matches/{match_id}/players",
             "/api/audit-logs",
             "/api/notifications",
             "/api/stats",
@@ -374,6 +385,72 @@ def _build_user_response(user: dict, role_name: Optional[str] = None) -> dict:
     }
 
 
+def _get_privacy_settings(conn, user_id: str) -> dict:
+    try:
+        row = conn.execute(text("""
+            SELECT profile_visibility, points_visibility, games_visibility, tournaments_visibility
+            FROM privacy_settings WHERE user_id = :uid
+        """), {"uid": user_id}).mappings().first()
+        if row:
+            return dict(row)
+    except Exception:
+        pass
+    return {
+        "profile_visibility": "PUBLIC",
+        "points_visibility": "PUBLIC",
+        "games_visibility": "PUBLIC",
+        "tournaments_visibility": "PUBLIC",
+    }
+
+
+def _apply_privacy(user: dict, privacy: dict, viewer_is_self: bool = False) -> dict:
+    if viewer_is_self:
+        return user
+    filtered = dict(user)
+    if privacy.get("profile_visibility") == "PRIVATE":
+        filtered["name"] = ""
+        filtered["surname"] = ""
+        filtered["username"] = ""
+        filtered["avatar"] = ""
+        filtered["email"] = ""
+        filtered["level"] = ""
+        filtered["position"] = ""
+        filtered["dominant_hand"] = ""
+    if privacy.get("points_visibility") == "PRIVATE":
+        filtered["points"] = 0
+        filtered["stats"] = {}
+    if privacy.get("games_visibility") == "PRIVATE":
+        filtered["stats"] = {}
+    return filtered
+
+
+def _apply_privacy_to_matches(matches: list, conn) -> list:
+    user_ids = set()
+    for m in matches:
+        for uid in [
+            m.get("playerA1Id"), m.get("playerA2Id"),
+            m.get("playerB1Id"), m.get("playerB2Id"),
+        ]:
+            if uid:
+                user_ids.add(uid)
+    privacy_map = {}
+    for uid in user_ids:
+        privacy_map[uid] = _get_privacy_settings(conn, uid)
+    result = []
+    for m in matches:
+        mm = dict(m)
+        for prefix in ["playerA1", "playerA2", "playerB1", "playerB2"]:
+            uid = m.get(f"{prefix}Id")
+            if not uid:
+                continue
+            priv = privacy_map.get(uid, {})
+            if priv.get("profile_visibility") == "PRIVATE":
+                mm[f"{prefix}Name"] = "Usuario Privado"
+                mm[f"{prefix}Avatar"] = ""
+        result.append(mm)
+    return result
+
+
 # ==================== USERS ====================
 
 @app.get("/api/users")
@@ -389,7 +466,9 @@ def get_users():
         users = []
         for row in result.mappings():
             user = dict(row)
-            users.append(_build_user_response(user, user.get("role_name")))
+            resp = _build_user_response(user, user.get("role_name"))
+            privacy = _get_privacy_settings(conn, user.get("id"))
+            users.append(_apply_privacy(resp, privacy, viewer_is_self=False))
         return users
 
 
@@ -431,7 +510,9 @@ def get_user(user_id: str):
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         user = dict(row)
-        return _build_user_response(user, user.get("role_name"))
+        resp = _build_user_response(user, user.get("role_name"))
+        privacy = _get_privacy_settings(conn, user_id)
+        return _apply_privacy(resp, privacy, viewer_is_self=False)
 
 
 @app.post("/api/users")
@@ -518,24 +599,76 @@ def delete_user(user_id: str, payload: dict = Depends(require_admin)):
 @app.get("/api/pairs")
 def get_pairs():
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM pairs ORDER BY created_at"))
-        pairs = [dict(row) for row in result.mappings()]
+        result = conn.execute(text("""
+            SELECT p.id, p.name, p.status, p.created_at, p.updated_at,
+                   p.tournaments_disputed, p.titles_won,
+                   p.player1_id, p.player2_id,
+                   u1.name AS player1_name, u1.surname AS player1_surname,
+                   u1.avatar AS player1_avatar, u1.username AS player1_username,
+                   u2.name AS player2_name, u2.surname AS player2_surname,
+                   u2.avatar AS player2_avatar, u2.username AS player2_username
+            FROM pairs p
+            JOIN users u1 ON p.player1_id = u1.id
+            JOIN users u2 ON p.player2_id = u2.id
+            ORDER BY p.created_at
+        """))
+        pairs = []
+        for row in result.mappings():
+            r = dict(row)
+            pairs.append({
+                "id": r["id"],
+                "name": r["name"],
+                "status": r["status"],
+                "player1Id": r["player1_id"],
+                "player2Id": r["player2_id"],
+                "player1Name": f"{r['player1_name']} {r['player1_surname'] or ''}".strip(),
+                "player2Name": f"{r['player2_name']} {r['player2_surname'] or ''}".strip(),
+                "player1Avatar": r["player1_avatar"] or "",
+                "player2Avatar": r["player2_avatar"] or "",
+                "createdAt": r["created_at"],
+                "tournamentsDisputed": r["tournaments_disputed"],
+                "titlesWon": r["titles_won"],
+            })
         return pairs
 
 
 @app.get("/api/pairs/{pair_id}")
 def get_pair(pair_id: str):
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_id})
-        row = result.mappings().first()
-        if not row:
+        pair = get_pair_with_users(conn, pair_id)
+        if not pair:
             raise HTTPException(status_code=404, detail="Pair not found")
-        return dict(row)
+        return {
+            "id": pair["id"],
+            "name": pair["name"],
+            "status": pair["status"],
+            "player1Id": pair["player1_id"],
+            "player2Id": pair["player2_id"],
+            "player1Name": f"{pair['p1_name']} {pair['p1_surname'] or ''}".strip(),
+            "player2Name": f"{pair['p2_name']} {pair['p2_surname'] or ''}".strip(),
+            "player1Avatar": pair["p1_avatar"] or "",
+            "player2Avatar": pair["p2_avatar"] or "",
+            "p1Level": pair["p1_level"],
+            "p2Level": pair["p2_level"],
+            "p1Points": pair["p1_points"],
+            "p2Points": pair["p2_points"],
+            "tournamentsDisputed": pair["tournaments_disputed"],
+            "titlesWon": pair["titles_won"],
+        }
 
 
 @app.post("/api/pairs")
 def create_pair(pair: dict, payload: dict = Depends(require_admin)):
+    player1_id = pair.get("player1Id") or pair.get("player1_id")
+    player2_id = pair.get("player2Id") or pair.get("player2_id")
+
     with engine.begin() as conn:
+        # Validate players exist
+        valid, msg = validate_pair_players_exist(conn, player1_id, player2_id)
+        if not valid:
+            raise HTTPException(status_code=400, detail=msg)
+
+        pair_id = pair.get("id") or f"{player1_id}_{player2_id}"
         conn.execute(text("""
             INSERT INTO pairs (id, name, player1_id, player2_id, created_by, status, tournaments_disputed, titles_won)
             VALUES (:id, :name, :player1_id, :player2_id, :created_by, :status, :tournaments_disputed, :titles_won)
@@ -544,16 +677,33 @@ def create_pair(pair: dict, payload: dict = Depends(require_admin)):
                 created_by = VALUES(created_by), status = VALUES(status),
                 tournaments_disputed = VALUES(tournaments_disputed), titles_won = VALUES(titles_won)
         """), {
-            "id": pair.get("id") or pair.get("player1Id") + "_" + pair.get("player2Id"),
+            "id": pair_id,
             "name": pair.get("name"),
-            "player1_id": pair.get("player1Id") or pair.get("player1_id"),
-            "player2_id": pair.get("player2Id") or pair.get("player2_id"),
-            "created_by": pair.get("createdBy") or pair.get("created_by") or pair.get("player1Id") or pair.get("player1_id"),
+            "player1_id": player1_id,
+            "player2_id": player2_id,
+            "created_by": pair.get("createdBy") or pair.get("created_by") or player1_id,
             "status": pair.get("status", "ACTIVE"),
-            "tournaments_disputed": pair.get("tournamentsDisputed") or pair.get("tournaments_disputed"),
-            "titles_won": pair.get("titlesWon") or pair.get("titles_won"),
+            "tournaments_disputed": pair.get("tournamentsDisputed") or pair.get("tournaments_disputed") or 0,
+            "titles_won": pair.get("titlesWon") or pair.get("titles_won") or 0,
         })
-    return pair
+
+        # Return enriched pair
+        enriched = get_pair_with_users(conn, pair_id)
+    if enriched:
+        return {
+            "id": enriched["id"],
+            "name": enriched["name"],
+            "status": enriched["status"],
+            "player1Id": enriched["player1_id"],
+            "player2Id": enriched["player2_id"],
+            "player1Name": f"{enriched['p1_name']} {enriched['p1_surname'] or ''}".strip(),
+            "player2Name": f"{enriched['p2_name']} {enriched['p2_surname'] or ''}".strip(),
+            "player1Avatar": enriched["p1_avatar"] or "",
+            "player2Avatar": enriched["p2_avatar"] or "",
+            "tournamentsDisputed": enriched["tournaments_disputed"],
+            "titlesWon": enriched["titles_won"],
+        }
+    return {"id": pair_id, **pair}
 
 
 @app.delete("/api/pairs/{pair_id}")
@@ -642,6 +792,24 @@ def get_tournament(tournament_id: str):
         t["registered_pair_ids"] = [r["pair_id"] for r in conn.execute(text("SELECT pair_id FROM tournament_pairs WHERE tournament_id = :tid"), {"tid": tournament_id}).mappings()]
         t["registered_user_ids"] = [r["user_id"] for r in conn.execute(text("SELECT user_id FROM tournament_players WHERE tournament_id = :tid"), {"tid": tournament_id}).mappings()]
         return _build_tournament_response(t)
+
+
+@app.get("/api/tournaments/{tournament_id}/full")
+def get_tournament_full_endpoint(tournament_id: str):
+    """Return fully normalized tournament data."""
+    with engine.connect() as conn:
+        data = get_tournament_full(conn, tournament_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        # Parse rules JSON if needed
+        rules = data.get("rules")
+        if isinstance(rules, str):
+            try:
+                rules = json.loads(rules)
+            except Exception:
+                rules = {}
+        data["rules"] = rules
+        return data
 
 
 @app.post("/api/tournaments")
@@ -789,6 +957,10 @@ def get_matches():
                     m.created_by AS createdBy,
                     m.pair_a_id AS pairAId,
                     m.pair_b_id AS pairBId,
+                    pa.player1_id AS playerA1Id,
+                    pa.player2_id AS playerA2Id,
+                    pb.player1_id AS playerB1Id,
+                    pb.player2_id AS playerB2Id,
                     m.date_time AS dateTime,
                     m.status,
                     m.visibility,
@@ -821,10 +993,10 @@ def get_matches():
                 LEFT JOIN courts c ON m.court_id = c.id
                 LEFT JOIN pairs pa ON m.pair_a_id = pa.id
                 LEFT JOIN pairs pb ON m.pair_b_id = pb.id
-                LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
-                LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
-                LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
-                LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+                LEFT JOIN users ua1 ON pa.player1_id = ua1.id
+                LEFT JOIN users ua2 ON pa.player2_id = ua2.id
+                LEFT JOIN users ub1 ON pb.player1_id = ub1.id
+                LEFT JOIN users ub2 ON pb.player2_id = ub2.id
                 ORDER BY m.date_time
             """))
         except Exception:
@@ -835,6 +1007,10 @@ def get_matches():
                     m.created_by AS createdBy,
                     m.pair_a_id AS pairAId,
                     m.pair_b_id AS pairBId,
+                    pa.player1_id AS playerA1Id,
+                    pa.player2_id AS playerA2Id,
+                    pb.player1_id AS playerB1Id,
+                    pb.player2_id AS playerB2Id,
                     m.date_time AS dateTime,
                     m.status,
                     m.sets,
@@ -857,10 +1033,10 @@ def get_matches():
                 LEFT JOIN courts c ON m.court_id = c.id
                 LEFT JOIN pairs pa ON m.pair_a_id = pa.id
                 LEFT JOIN pairs pb ON m.pair_b_id = pb.id
-                LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
-                LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
-                LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
-                LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+                LEFT JOIN users ua1 ON pa.player1_id = ua1.id
+                LEFT JOIN users ua2 ON pa.player2_id = ua2.id
+                LEFT JOIN users ub1 ON pb.player1_id = ub1.id
+                LEFT JOIN users ub2 ON pb.player2_id = ub2.id
                 ORDER BY m.date_time
             """))
         matches = []
@@ -893,7 +1069,7 @@ def get_matches():
             m.setdefault("courtName", m.get("courtName") or "Pista por definir")
             m["current_game"] = {}
             matches.append(m)
-        return matches
+        return _apply_privacy_to_matches(matches, conn)
 
 
 @app.get("/api/matches/{match_id}")
@@ -908,6 +1084,10 @@ def get_match(match_id: str):
                 m.created_by AS createdBy,
                 m.pair_a_id AS pairAId,
                 m.pair_b_id AS pairBId,
+                pa.player1_id AS playerA1Id,
+                pa.player2_id AS playerA2Id,
+                pb.player1_id AS playerB1Id,
+                pb.player2_id AS playerB2Id,
                 m.date_time AS dateTime,
                 m.status,
                 m.visibility,
@@ -940,10 +1120,10 @@ def get_match(match_id: str):
             LEFT JOIN courts c ON m.court_id = c.id
             LEFT JOIN pairs pa ON m.pair_a_id = pa.id
             LEFT JOIN pairs pb ON m.pair_b_id = pb.id
-            LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
-            LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
-            LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
-            LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+            LEFT JOIN users ua1 ON pa.player1_id = ua1.id
+            LEFT JOIN users ua2 ON pa.player2_id = ua2.id
+            LEFT JOIN users ub1 ON pb.player1_id = ub1.id
+            LEFT JOIN users ub2 ON pb.player2_id = ub2.id
             WHERE m.id = :id
         """), {"id": match_id})
         row = result.mappings().first()
@@ -953,25 +1133,20 @@ def get_match(match_id: str):
         if isinstance(m.get("sets"), str):
             m["sets"] = json.loads(m["sets"])
         m["current_game"] = {}
-        return m
+        return _apply_privacy_to_matches([m], conn)[0]
 
 
 @app.post("/api/matches")
 def create_match(match: dict, payload: dict = Depends(require_admin)):
     match = normalize_match_payload(match)
     with engine.begin() as conn:
+        # Validate pair references
         pair_a_id = match.get("pair_a_id")
         pair_b_id = match.get("pair_b_id")
-        if pair_a_id and not match.get("player_a1_id"):
-            row = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_a_id}).mappings().first()
-            if row:
-                match["player_a1_id"] = row.get("player1_id")
-                match["player_a2_id"] = row.get("player2_id")
-        if pair_b_id and not match.get("player_b1_id"):
-            row = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_b_id}).mappings().first()
-            if row:
-                match["player_b1_id"] = row.get("player1_id")
-                match["player_b2_id"] = row.get("player2_id")
+        if pair_a_id or pair_b_id:
+            valid, msg = validate_match_pair_references(conn, pair_a_id, pair_b_id)
+            if not valid:
+                raise HTTPException(status_code=400, detail=msg)
 
         conn.execute(text("""
             INSERT INTO matches (id, tournament_id, round_id, business_id, court_id, created_by,
@@ -986,7 +1161,7 @@ def create_match(match: dict, payload: dict = Depends(require_admin)):
             "id": match["id"], "tournament_id": match.get("tournament_id"),
             "round_id": match.get("round_id"), "business_id": match.get("business_id"),
             "court_id": match.get("court_id"), "created_by": match.get("created_by"),
-            "pair_a_id": match.get("pair_a_id"), "pair_b_id": match.get("pair_b_id"),
+            "pair_a_id": pair_a_id, "pair_b_id": pair_b_id,
             "date_time": match.get("date_time"), "status": match.get("status", "SCHEDULED"),
             "visibility": match.get("visibility", "PRIVATE"),
             "sets": json.dumps(match.get("sets", [])),
@@ -997,7 +1172,24 @@ def create_match(match: dict, payload: dict = Depends(require_admin)):
             "sets_to_win": match.get("sets_to_win", 2),
             "round_name": match.get("round_name"),
         })
+
+        # Auto-create match_players from pairs
+        if pair_a_id or pair_b_id:
+            sync_match_players_from_pairs(conn, match["id"])
+
     return match
+
+
+@app.get("/api/matches/{match_id}/players")
+def get_match_players_endpoint(match_id: str):
+    """Return players for a match derived from pair composition."""
+    with engine.connect() as conn:
+        # Verify match exists
+        match = conn.execute(text("SELECT id FROM matches WHERE id = :id"), {"id": match_id}).mappings().first()
+        if not match:
+            raise HTTPException(status_code=404, detail="Match not found")
+        players = get_match_players(conn, match_id)
+        return players
 
 
 @app.put("/api/matches/{match_id}")

@@ -273,3 +273,80 @@ export interface GroupTableEntry {
   gamesLost: number;
   points: number;
 }
+
+// New relational types
+export interface MatchPlayer {
+  match_id: string;
+  user_id: string;
+  pair_id: string;
+  team: 'A' | 'B';
+  player_number: number;
+  name: string;
+  surname: string;
+  avatar: string;
+  username: string;
+}
+
+export interface TournamentFull {
+  id: string;
+  name: string;
+  logo: string;
+  description: string;
+  category: string;
+  level: string;
+  location: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  format: string;
+  max_pairs: number;
+  visibility: string;
+  rules: TournamentRules;
+  categories: Array<{
+    id: string;
+    name: string;
+    level: string;
+    max_pairs: number;
+  }>;
+  rounds: Array<{
+    id: string;
+    name: string;
+    round_number: number;
+    round_type: string;
+  }>;
+  registered_pairs: Array<{
+    pair_id: string;
+    pair_name: string;
+    status: string;
+    seed: number;
+    player1_id: string;
+    player2_id: string;
+    p1_name: string;
+    p1_surname: string;
+    p1_avatar: string;
+    p2_name: string;
+    p2_surname: string;
+    p2_avatar: string;
+  }>;
+  registered_players: Array<{
+    user_id: string;
+    name: string;
+    surname: string;
+    username: string;
+    avatar: string;
+    points: number;
+    status: string;
+  }>;
+  matches: Array<{
+    id: string;
+    pair_a_id: string;
+    pair_b_id: string;
+    pair_a_name: string;
+    pair_b_name: string;
+    round_name: string;
+    date_time: string;
+    status: string;
+    sets: SetScore[];
+    winner_team?: 'A' | 'B';
+  }>;
+}

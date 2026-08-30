@@ -920,6 +920,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 pairBId: pairB.id,
                 pairAName: pairA.name,
                 pairBName: pairB.name,
+                // Player data comes from the enriched pair object (player1Id, player2Id etc.)
                 playerA1Id: pairA.player1Id,
                 playerA2Id: pairA.player2Id,
                 playerB1Id: pairB.player1Id,
