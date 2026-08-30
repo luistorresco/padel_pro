@@ -160,7 +160,7 @@ def register(body: dict = Body(...)):
         raise HTTPException(status_code=400, detail="Email and password are required")
 
     with engine.begin() as conn:
-        result = conn.execute(text("SELECT * FROM users_auth WHERE email = :email"), {"email": email})
+        result = conn.execute(text("SELECT user_id FROM users_auth WHERE email = :email"), {"email": email})
         if result.mappings().first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -168,45 +168,33 @@ def register(body: dict = Body(...)):
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         conn.execute(text("""
-            INSERT INTO users_auth (id, email, hashed_password, role)
-            VALUES (:id, :email, :hashed_password, :role)
+            INSERT INTO users (id, name, surname, username, email, avatar, account_type, status, level, position, dominant_hand, points)
+            VALUES (:id, :name, :surname, :username, :email, :avatar, 'USER', 'ACTIVE', :level, :position, :dominant_hand, :points)
         """), {
             "id": user_id,
+            "name": name,
+            "surname": surname,
+            "username": username or email.split("@")[0],
             "email": email,
-            "hashed_password": hashed,
-            "role": role,
+            "avatar": body.get("avatar"),
+            "level": body.get("level"),
+            "position": body.get("position"),
+            "dominant_hand": body.get("dominant_hand"),
+            "points": body.get("points", 0),
         })
 
-        if name and surname:
-            conn.execute(text("""
-                INSERT INTO users (id, name, surname, username, email, role, avatar, level,
-                    position, dominant_hand, current_pair_id, points, partner_name, phone, stats)
-                VALUES (:id, :name, :surname, :username, :email, :role, :avatar, :level,
-                    :position, :dominant_hand, :current_pair_id, :points, :partner_name, :phone, :stats)
-                ON DUPLICATE KEY UPDATE
-                    name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
-                    email = VALUES(email), role = VALUES(role), avatar = VALUES(avatar),
-                    level = VALUES(level), position = VALUES(position),
-                    dominant_hand = VALUES(dominant_hand), current_pair_id = VALUES(current_pair_id),
-                    points = VALUES(points), partner_name = VALUES(partner_name),
-                    phone = VALUES(phone), stats = VALUES(stats)
-            """), {
-                "id": user_id,
-                "name": name,
-                "surname": surname,
-                "username": username or email.split("@")[0],
-                "email": email,
-                "role": role,
-                "avatar": body.get("avatar"),
-                "level": body.get("level"),
-                "position": body.get("position"),
-                "dominant_hand": body.get("dominant_hand"),
-                "current_pair_id": body.get("current_pair_id"),
-                "points": body.get("points", 0),
-                "partner_name": body.get("partner_name"),
-                "phone": body.get("phone"),
-                "stats": json.dumps(normalize_stats(body.get("stats"))),
-            })
+        conn.execute(text("""
+            INSERT INTO users_auth (user_id, email, hashed_password)
+            VALUES (:user_id, :email, :hashed_password)
+        """), {
+            "user_id": user_id,
+            "email": email,
+            "hashed_password": hashed,
+        })
+
+        role_row = conn.execute(text("SELECT id FROM roles WHERE name = :name"), {"name": role}).mappings().first()
+        role_id = role_row["id"] if role_row else conn.execute(text("INSERT INTO roles (name) VALUES (:name)"), {"name": role}).lastrowid
+        conn.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)"), {"user_id": user_id, "role_id": role_id})
 
     token = create_access_token(user_id, role)
     return {"access_token": token, "token_type": "bearer", "user_id": user_id, "role": role}
@@ -230,8 +218,20 @@ def login(body: dict = Body(...)):
         if not bcrypt.checkpw(password.encode("utf-8"), auth_user["hashed_password"].encode("utf-8")):
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
-        token = create_access_token(auth_user["id"], auth_user["role"])
-        return {"access_token": token, "token_type": "bearer", "user_id": auth_user["id"], "role": auth_user["role"]}
+        user_id = auth_user["user_id"]
+        role_row = conn.execute(text("""
+            SELECT r.name FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = :uid
+            LIMIT 1
+        """), {"uid": user_id}).mappings().first()
+        role = role_row["name"] if role_row else "PLAYER"
+
+        conn.execute(text("UPDATE users_auth SET last_login = :now WHERE user_id = :uid"),
+                     {"now": datetime.utcnow(), "uid": user_id})
+
+        token = create_access_token(user_id, role)
+        return {"access_token": token, "token_type": "bearer", "user_id": user_id, "role": role}
 
 
 @app.get("/api/auth/me")
@@ -249,14 +249,18 @@ def auth_me(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
+        result = conn.execute(text("""
+            SELECT u.*, ua.email as auth_email,
+                   (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+            FROM users u
+            LEFT JOIN users_auth ua ON u.id = ua.user_id
+            WHERE u.id = :id
+        """), {"id": user_id})
         row = result.mappings().first()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         user = dict(row)
-        if isinstance(user.get("stats"), str):
-            user["stats"] = json.loads(user["stats"])
-        return user
+        return _build_user_response(user, user.get("role_name"))
 
 
 def get_current_user(authorization: Optional[str] = Header(None)):
@@ -274,66 +278,138 @@ def require_admin(payload: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return payload
 
+
+def _build_user_response(user: dict, role_name: Optional[str] = None) -> dict:
+    return {
+        "id": user.get("id"),
+        "name": user.get("name"),
+        "surname": user.get("surname"),
+        "username": user.get("username"),
+        "email": user.get("email"),
+        "avatar": user.get("avatar"),
+        "level": user.get("level"),
+        "position": user.get("position"),
+        "dominant_hand": user.get("dominant_hand"),
+        "points": user.get("points", 0),
+        "stats": {},
+        "role": role_name,
+        "account_type": user.get("account_type"),
+        "status": user.get("status"),
+        "invitation_code": user.get("invitation_code"),
+        "created_at": user.get("created_at"),
+        "updated_at": user.get("updated_at"),
+        "phone": None,
+        "current_pair_id": None,
+        "partner_name": None,
+    }
+
+
 # ==================== USERS ====================
 
 @app.get("/api/users")
 def get_users():
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM users ORDER BY points DESC"))
+        result = conn.execute(text("""
+            SELECT u.*, ua.email as auth_email,
+                   (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+            FROM users u
+            LEFT JOIN users_auth ua ON u.id = ua.user_id
+            ORDER BY u.points DESC
+        """))
         users = []
         for row in result.mappings():
             user = dict(row)
-            if isinstance(user.get("stats"), str):
-                user["stats"] = json.loads(user["stats"])
-            if not user.get("stats"):
-                user["stats"] = {}
-            users.append(user)
+            users.append(_build_user_response(user, user.get("role_name")))
         return users
 
+
 @app.get("/api/users/me")
-def get_current_user():
+def get_current_user(authorization: Optional[str] = Header(None)):
+    if authorization:
+        token = authorization.replace("Bearer ", "")
+        payload = decode_token(token)
+        if payload:
+            user_id = payload.get("sub")
+            if user_id:
+                with engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT u.*, ua.email as auth_email,
+                               (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+                        FROM users u
+                        LEFT JOIN users_auth ua ON u.id = ua.user_id
+                        WHERE u.id = :id
+                    """), {"id": user_id})
+                    row = result.mappings().first()
+                    if row:
+                        user = dict(row)
+                        return _build_user_response(user, user.get("role_name"))
     data = get_mock_data()
     return data["initial_user"]
+
 
 @app.get("/api/users/{user_id}")
 def get_user(user_id: str):
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
+        result = conn.execute(text("""
+            SELECT u.*, ua.email as auth_email,
+                   (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+            FROM users u
+            LEFT JOIN users_auth ua ON u.id = ua.user_id
+            WHERE u.id = :id
+        """), {"id": user_id})
         row = result.mappings().first()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         user = dict(row)
-        if isinstance(user.get("stats"), str):
-            user["stats"] = json.loads(user["stats"])
-        if not user.get("stats"):
-            user["stats"] = {}
-        return user
+        return _build_user_response(user, user.get("role_name"))
+
 
 @app.post("/api/users")
 def create_user(user: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO users (id, name, surname, username, email, role, avatar, level,
-                position, dominant_hand, current_pair_id, points, partner_name, phone, stats)
-            VALUES (:id, :name, :surname, :username, :email, :role, :avatar, :level,
-                :position, :dominant_hand, :current_pair_id, :points, :partner_name, :phone, :stats)
+            INSERT INTO users (id, name, surname, username, email, avatar, account_type, status, level, position, dominant_hand, points)
+            VALUES (:id, :name, :surname, :username, :email, :avatar, 'USER', 'ACTIVE', :level, :position, :dominant_hand, :points)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
-                email = VALUES(email), role = VALUES(role), avatar = VALUES(avatar),
-                level = VALUES(level), position = VALUES(position),
-                dominant_hand = VALUES(dominant_hand), current_pair_id = VALUES(current_pair_id),
-                points = VALUES(points), partner_name = VALUES(partner_name),
-                phone = VALUES(phone), stats = VALUES(stats)
+                email = VALUES(email), avatar = VALUES(avatar), level = VALUES(level),
+                position = VALUES(position), dominant_hand = VALUES(dominant_hand),
+                points = VALUES(points)
         """), {
-            "id": user["id"], "name": user["name"], "surname": user["surname"],
-            "username": user["username"], "email": user["email"], "role": user["role"],
-            "avatar": user.get("avatar"), "level": user.get("level"),
-            "position": user.get("position"), "dominant_hand": user.get("dominant_hand"),
-            "current_pair_id": user.get("current_pair_id"), "points": user.get("points", 0),
-            "partner_name": user.get("partner_name"), "phone": user.get("phone"),
-            "stats": json.dumps(normalize_stats(user.get("stats"))),
+            "id": user["id"],
+            "name": user["name"],
+            "surname": user.get("surname", ""),
+            "username": user["username"],
+            "email": user.get("email"),
+            "avatar": user.get("avatar"),
+            "level": user.get("level"),
+            "position": user.get("position"),
+            "dominant_hand": user.get("dominant_hand"),
+            "points": user.get("points", 0),
         })
+
+        if user.get("email"):
+            hashed = bcrypt.hashpw((user.get("password") or "password").encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            conn.execute(text("""
+                INSERT INTO users_auth (user_id, email, hashed_password)
+                VALUES (:user_id, :email, :hashed_password)
+                ON DUPLICATE KEY UPDATE email = VALUES(email), hashed_password = VALUES(hashed_password)
+            """), {
+                "user_id": user["id"],
+                "email": user["email"],
+                "hashed_password": hashed,
+            })
+
+        if user.get("role"):
+            role_row = conn.execute(text("SELECT id FROM roles WHERE name = :name"), {"name": user["role"]}).mappings().first()
+            role_id = role_row["id"] if role_row else conn.execute(text("INSERT INTO roles (name) VALUES (:name)"), {"name": user["role"]}).lastrowid
+            conn.execute(text("""
+                INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)
+                ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+            """), {"user_id": user["id"], "role_id": role_id})
+
     return user
+
 
 @app.put("/api/users/{user_id}")
 def update_user(user_id: str, user: dict, payload: dict = Depends(require_admin)):
@@ -341,24 +417,22 @@ def update_user(user_id: str, user: dict, payload: dict = Depends(require_admin)
         result = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
         if not result.mappings().first():
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         conn.execute(text("""
             UPDATE users SET name = :name, surname = :surname, username = :username,
-                email = :email, role = :role, avatar = :avatar, level = :level,
+                email = :email, avatar = :avatar, level = :level,
                 position = :position, dominant_hand = :dominant_hand,
-                current_pair_id = :current_pair_id, points = :points,
-                partner_name = :partner_name, phone = :phone, stats = :stats
+                points = :points
             WHERE id = :id
         """), {
-            "id": user_id, "name": user["name"], "surname": user["surname"],
-            "username": user["username"], "email": user["email"], "role": user["role"],
+            "id": user_id, "name": user["name"], "surname": user.get("surname", ""),
+            "username": user["username"], "email": user.get("email"),
             "avatar": user.get("avatar"), "level": user.get("level"),
             "position": user.get("position"), "dominant_hand": user.get("dominant_hand"),
-            "current_pair_id": user.get("current_pair_id"), "points": user.get("points", 0),
-            "partner_name": user.get("partner_name"), "phone": user.get("phone"),
-            "stats": json.dumps(user.get("stats", {})),
+            "points": user.get("points", 0),
         })
     return {**user, "id": user_id}
+
 
 @app.delete("/api/users/{user_id}")
 def delete_user(user_id: str, payload: dict = Depends(require_admin)):
@@ -378,6 +452,7 @@ def get_pairs():
         pairs = [dict(row) for row in result.mappings()]
         return pairs
 
+
 @app.get("/api/pairs/{pair_id}")
 def get_pair(pair_id: str):
     with engine.connect() as conn:
@@ -387,35 +462,29 @@ def get_pair(pair_id: str):
             raise HTTPException(status_code=404, detail="Pair not found")
         return dict(row)
 
+
 @app.post("/api/pairs")
 def create_pair(pair: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO pairs (id, name, player1_id, player2_id, player1_name, player2_name,
-                player1_avatar, player2_avatar, created_at, status, tournaments_disputed, titles_won)
-            VALUES (:id, :name, :player1_id, :player2_id, :player1_name, :player2_name,
-                :player1_avatar, :player2_avatar, :created_at, :status, :tournaments_disputed, :titles_won)
+            INSERT INTO pairs (id, name, player1_id, player2_id, created_by, status, tournaments_disputed, titles_won)
+            VALUES (:id, :name, :player1_id, :player2_id, :created_by, :status, :tournaments_disputed, :titles_won)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name), player1_id = VALUES(player1_id), player2_id = VALUES(player2_id),
-                player1_name = VALUES(player1_name), player2_name = VALUES(player2_name),
-                player1_avatar = VALUES(player1_avatar), player2_avatar = VALUES(player2_avatar),
-                created_at = VALUES(created_at), status = VALUES(status),
+                created_by = VALUES(created_by), status = VALUES(status),
                 tournaments_disputed = VALUES(tournaments_disputed), titles_won = VALUES(titles_won)
         """), {
             "id": pair.get("id") or pair.get("player1Id") + "_" + pair.get("player2Id"),
             "name": pair.get("name"),
             "player1_id": pair.get("player1Id") or pair.get("player1_id"),
             "player2_id": pair.get("player2Id") or pair.get("player2_id"),
-            "player1_name": pair.get("player1Name") or pair.get("player1_name"),
-            "player2_name": pair.get("player2Name") or pair.get("player2_name"),
-            "player1_avatar": pair.get("player1Avatar") or pair.get("player1_avatar"),
-            "player2_avatar": pair.get("player2Avatar") or pair.get("player2_avatar"),
-            "created_at": pair.get("createdAt") or pair.get("created_at"),
-            "status": pair.get("status"),
+            "created_by": pair.get("createdBy") or pair.get("created_by") or pair.get("player1Id") or pair.get("player1_id"),
+            "status": pair.get("status", "ACTIVE"),
             "tournaments_disputed": pair.get("tournamentsDisputed") or pair.get("tournaments_disputed"),
             "titles_won": pair.get("titlesWon") or pair.get("titles_won"),
         })
     return pair
+
 
 @app.delete("/api/pairs/{pair_id}")
 def delete_pair(pair_id: str, payload: dict = Depends(require_admin)):
@@ -428,6 +497,33 @@ def delete_pair(pair_id: str, payload: dict = Depends(require_admin)):
 
 # ==================== TOURNAMENTS ====================
 
+def _build_tournament_response(t: dict) -> dict:
+    return {
+        "id": t.get("id"),
+        "name": t.get("name"),
+        "logo": t.get("logo"),
+        "description": t.get("description"),
+        "category": t.get("category"),
+        "level": t.get("level"),
+        "location": t.get("location"),
+        "start_date": t.get("start_date"),
+        "end_date": t.get("end_date"),
+        "status": t.get("status"),
+        "format": t.get("format"),
+        "max_pairs": t.get("max_pairs"),
+        "visibility": t.get("visibility"),
+        "rules": json.loads(t["rules"]) if isinstance(t.get("rules"), str) else (t.get("rules") or {}),
+        "registered_pair_ids": t.get("registered_pair_ids", []),
+        "registered_user_ids": t.get("registered_user_ids", []),
+        "court_ids": t.get("court_ids", []),
+        "business_id": t.get("business_id"),
+        "created_by": t.get("created_by"),
+        "created_at": t.get("created_at"),
+        "updated_at": t.get("updated_at"),
+        "deleted_at": t.get("deleted_at"),
+    }
+
+
 @app.get("/api/tournaments")
 def get_tournaments():
     with engine.connect() as conn:
@@ -435,24 +531,11 @@ def get_tournaments():
         tournaments = []
         for row in result.mappings():
             t = dict(row)
-            if isinstance(t.get("registered_pair_ids"), str):
-                t["registered_pair_ids"] = json.loads(t["registered_pair_ids"])
-            else:
-                t["registered_pair_ids"] = []
-            if isinstance(t.get("registered_user_ids"), str):
-                t["registered_user_ids"] = json.loads(t["registered_user_ids"])
-            else:
-                t["registered_user_ids"] = []
-            if isinstance(t.get("rules"), str):
-                t["rules"] = json.loads(t["rules"])
-            else:
-                t["rules"] = {}
-            if isinstance(t.get("court_ids"), str):
-                t["court_ids"] = json.loads(t["court_ids"])
-            else:
-                t["court_ids"] = []
-            tournaments.append(t)
+            t["registered_pair_ids"] = [r["pair_id"] for r in conn.execute(text("SELECT pair_id FROM tournament_pairs WHERE tournament_id = :tid"), {"tid": t["id"]}).mappings()]
+            t["registered_user_ids"] = [r["user_id"] for r in conn.execute(text("SELECT user_id FROM tournament_players WHERE tournament_id = :tid"), {"tid": t["id"]}).mappings()]
+            tournaments.append(_build_tournament_response(t))
         return tournaments
+
 
 @app.get("/api/tournaments/{tournament_id}")
 def get_tournament(tournament_id: str):
@@ -462,51 +545,37 @@ def get_tournament(tournament_id: str):
         if not row:
             raise HTTPException(status_code=404, detail="Tournament not found")
         t = dict(row)
-        if isinstance(t.get("registered_pair_ids"), str):
-            t["registered_pair_ids"] = json.loads(t["registered_pair_ids"])
-        else:
-            t["registered_pair_ids"] = []
-        if isinstance(t.get("registered_user_ids"), str):
-            t["registered_user_ids"] = json.loads(t["registered_user_ids"])
-        else:
-            t["registered_user_ids"] = []
-        if isinstance(t.get("rules"), str):
-            t["rules"] = json.loads(t["rules"])
-        else:
-            t["rules"] = {}
-        if isinstance(t.get("court_ids"), str):
-            t["court_ids"] = json.loads(t["court_ids"])
-        else:
-            t["court_ids"] = []
-        return t
+        t["registered_pair_ids"] = [r["pair_id"] for r in conn.execute(text("SELECT pair_id FROM tournament_pairs WHERE tournament_id = :tid"), {"tid": tournament_id}).mappings()]
+        t["registered_user_ids"] = [r["user_id"] for r in conn.execute(text("SELECT user_id FROM tournament_players WHERE tournament_id = :tid"), {"tid": tournament_id}).mappings()]
+        return _build_tournament_response(t)
+
 
 @app.post("/api/tournaments")
 def create_tournament(tournament: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO tournaments (id, name, logo, description, category, level, location,
-                start_date, end_date, status, format, max_pairs, registered_pair_ids, registered_user_ids, rules, court_ids)
-            VALUES (:id, :name, :logo, :description, :category, :level, :location,
-                :start_date, :end_date, :status, :format, :max_pairs, :registered_pair_ids, :registered_user_ids, :rules, :court_ids)
+            INSERT INTO tournaments (id, business_id, created_by, name, logo, description, category,
+                level, location, start_date, end_date, status, format, max_pairs, visibility, rules)
+            VALUES (:id, :business_id, :created_by, :name, :logo, :description, :category,
+                :level, :location, :start_date, :end_date, :status, :format, :max_pairs, :visibility, :rules)
             ON DUPLICATE KEY UPDATE
-                name = VALUES(name), logo = VALUES(logo), description = VALUES(description),
-                category = VALUES(category), level = VALUES(level), location = VALUES(location),
-                start_date = VALUES(start_date), end_date = VALUES(end_date), status = VALUES(status),
-                format = VALUES(format), max_pairs = VALUES(max_pairs),
-                registered_pair_ids = VALUES(registered_pair_ids), registered_user_ids = VALUES(registered_user_ids), rules = VALUES(rules), court_ids = VALUES(court_ids)
+                name = VALUES(name), description = VALUES(description), category = VALUES(category),
+                level = VALUES(level), location = VALUES(location), start_date = VALUES(start_date),
+                end_date = VALUES(end_date), status = VALUES(status), format = VALUES(format),
+                max_pairs = VALUES(max_pairs), visibility = VALUES(visibility), rules = VALUES(rules)
         """), {
-            "id": tournament["id"], "name": tournament["name"], "logo": tournament.get("logo"),
-            "description": tournament.get("description"), "category": tournament.get("category"),
-            "level": tournament.get("level"), "location": tournament.get("location"),
-            "start_date": tournament.get("start_date"), "end_date": tournament.get("end_date"),
-            "status": tournament.get("status"), "format": tournament.get("format"),
-            "max_pairs": tournament.get("max_pairs"),
-            "registered_pair_ids": json.dumps(tournament.get("registered_pair_ids", [])),
-            "registered_user_ids": json.dumps(tournament.get("registered_user_ids", [])),
+            "id": tournament["id"], "business_id": tournament.get("business_id"),
+            "created_by": tournament.get("created_by"), "name": tournament["name"],
+            "logo": tournament.get("logo"), "description": tournament.get("description"),
+            "category": tournament.get("category"), "level": tournament.get("level"),
+            "location": tournament.get("location"), "start_date": tournament.get("start_date"),
+            "end_date": tournament.get("end_date"), "status": tournament.get("status", "DRAFT"),
+            "format": tournament.get("format"), "max_pairs": tournament.get("max_pairs"),
+            "visibility": tournament.get("visibility", "PRIVATE"),
             "rules": json.dumps(tournament.get("rules", {})),
-            "court_ids": json.dumps(tournament.get("court_ids", [])),
         })
     return tournament
+
 
 @app.put("/api/tournaments/{tournament_id}")
 def update_tournament(tournament_id: str, tournament: dict, payload: dict = Depends(require_admin)):
@@ -519,8 +588,7 @@ def update_tournament(tournament_id: str, tournament: dict, payload: dict = Depe
                 name = :name, logo = :logo, description = :description, category = :category,
                 level = :level, location = :location, start_date = :start_date, end_date = :end_date,
                 status = :status, format = :format, max_pairs = :max_pairs,
-                registered_pair_ids = :registered_pair_ids, registered_user_ids = :registered_user_ids,
-                rules = :rules, court_ids = :court_ids
+                visibility = :visibility, rules = :rules
             WHERE id = :id
         """), {
             "id": tournament_id,
@@ -530,27 +598,26 @@ def update_tournament(tournament_id: str, tournament: dict, payload: dict = Depe
             "start_date": tournament.get("start_date"), "end_date": tournament.get("end_date"),
             "status": tournament.get("status"), "format": tournament.get("format"),
             "max_pairs": tournament.get("max_pairs"),
-            "registered_pair_ids": json.dumps(tournament.get("registered_pair_ids", [])),
-            "registered_user_ids": json.dumps(tournament.get("registered_user_ids", [])),
+            "visibility": tournament.get("visibility", "PRIVATE"),
             "rules": json.dumps(tournament.get("rules", {})),
-            "court_ids": json.dumps(tournament.get("court_ids", [])),
         })
     return {**tournament, "id": tournament_id}
+
 
 @app.post("/api/tournaments/{tournament_id}/register_user")
 def register_user(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
     user_id = body.get("user_id")
     with engine.begin() as conn:
-        result = conn.execute(text("SELECT registered_user_ids FROM tournaments WHERE id = :id"), {"id": tournament_id})
-        row = result.mappings().first()
-        if not row:
+        result = conn.execute(text("SELECT * FROM tournaments WHERE id = :id"), {"id": tournament_id})
+        if not result.mappings().first():
             raise HTTPException(status_code=404, detail="Tournament not found")
-        current = json.loads(row["registered_user_ids"] or "[]")
-        if user_id not in current:
-            current.append(user_id)
-        conn.execute(text("UPDATE tournaments SET registered_user_ids = :ru WHERE id = :id"),
-                     {"ru": json.dumps(current), "id": tournament_id})
-    return {"message": "User registered", "registered_user_ids": current}
+        conn.execute(text("""
+            INSERT INTO tournament_players (tournament_id, user_id, status) VALUES (:tid, :uid, 'REGISTERED')
+            ON DUPLICATE KEY UPDATE status = VALUES(status)
+        """), {"tid": tournament_id, "uid": user_id})
+    registered = [r["user_id"] for r in conn.execute(text("SELECT user_id FROM tournament_players WHERE tournament_id = :tid"), {"tid": tournament_id}).mappings()]
+    return {"message": "User registered", "registered_user_ids": registered}
+
 
 @app.post("/api/tournaments/{tournament_id}/register")
 def register_pair(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
@@ -559,33 +626,15 @@ def register_pair(tournament_id: str, body: dict, payload: dict = Depends(requir
     date_time = body.get("date_time")
     with engine.begin() as conn:
         result = conn.execute(text("SELECT * FROM tournaments WHERE id = :id"), {"id": tournament_id})
-        row = result.mappings().first()
-        if not row:
+        if not result.mappings().first():
             raise HTTPException(status_code=404, detail="Tournament not found")
-        tournament = dict(row)
-        registered_pair_ids = json.loads(tournament.get("registered_pair_ids") or "[]")
-        if pair_id not in registered_pair_ids:
-            registered_pair_ids.append(pair_id)
-
-        court_ids = json.loads(tournament.get("court_ids") or "[]")
-        if court_id and court_id not in court_ids:
-            court_ids.append(court_id)
-
         conn.execute(text("""
-            UPDATE tournaments SET
-                registered_pair_ids = :rp,
-                court_ids = :cids,
-                start_date = :start_date,
-                end_date = :end_date
-            WHERE id = :id
-        """), {
-            "rp": json.dumps(registered_pair_ids),
-            "cids": json.dumps(court_ids),
-            "start_date": date_time or tournament.get("start_date"),
-            "end_date": date_time or tournament.get("end_date"),
-            "id": tournament_id,
-        })
-    return {"message": "Pair registered", "registered_pair_ids": registered_pair_ids, "court_ids": court_ids}
+            INSERT INTO tournament_pairs (tournament_id, pair_id, status) VALUES (:tid, :pid, 'REGISTERED')
+            ON DUPLICATE KEY UPDATE status = VALUES(status)
+        """), {"tid": tournament_id, "pid": pair_id})
+    registered = [r["pair_id"] for r in conn.execute(text("SELECT pair_id FROM tournament_pairs WHERE tournament_id = :tid"), {"tid": tournament_id}).mappings()]
+    return {"message": "Pair registered", "registered_pair_ids": registered, "court_ids": []}
+
 
 @app.delete("/api/tournaments/{tournament_id}")
 def delete_tournament(tournament_id: str, payload: dict = Depends(require_admin)):
@@ -623,12 +672,11 @@ def update_court(court_id: str, court: dict, payload: dict = Depends(require_adm
             raise HTTPException(status_code=404, detail="Court not found")
         conn.execute(text("""
             UPDATE courts SET name = :name, location = :location, number = :number,
-                status = :status, current_match_id = :current_match_id
+                status = :status
             WHERE id = :id
         """), {
-            "id": court_id, "name": court["name"], "location": court["location"],
-            "number": court["number"], "status": court["status"],
-            "current_match_id": court.get("current_match_id"),
+            "id": court_id, "name": court["name"], "location": court.get("location"),
+            "number": court.get("number"), "status": court["status"],
         })
     return {**court, "id": court_id}
 
@@ -637,30 +685,78 @@ def update_court(court_id: str, court: dict, payload: dict = Depends(require_adm
 @app.get("/api/matches")
 def get_matches():
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM matches ORDER BY date_time"))
+        result = conn.execute(text("""
+            SELECT m.*,
+                t.name AS tournament_name,
+                c.name AS court_name,
+                pa.name AS pair_a_name,
+                pb.name AS pair_b_name,
+                ua1.name AS player_a1_name,
+                ua2.name AS player_a2_name,
+                ub1.name AS player_b1_name,
+                ub2.name AS player_b2_name,
+                ua1.avatar AS player_a1_avatar,
+                ua2.avatar AS player_a2_avatar,
+                ub1.avatar AS player_b1_avatar,
+                ub2.avatar AS player_b2_avatar
+            FROM matches m
+            LEFT JOIN tournaments t ON m.tournament_id = t.id
+            LEFT JOIN courts c ON m.court_id = c.id
+            LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+            LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+            LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
+            LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
+            LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
+            LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+            ORDER BY m.date_time
+        """))
         matches = []
         for row in result.mappings():
             m = dict(row)
             if isinstance(m.get("sets"), str):
                 m["sets"] = json.loads(m["sets"])
-            if isinstance(m.get("current_game"), str):
-                m["current_game"] = json.loads(m["current_game"])
+            m["current_game"] = {}
             matches.append(m)
         return matches
+
 
 @app.get("/api/matches/{match_id}")
 def get_match(match_id: str):
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
+        result = conn.execute(text("""
+            SELECT m.*,
+                t.name AS tournament_name,
+                c.name AS court_name,
+                pa.name AS pair_a_name,
+                pb.name AS pair_b_name,
+                ua1.name AS player_a1_name,
+                ua2.name AS player_a2_name,
+                ub1.name AS player_b1_name,
+                ub2.name AS player_b2_name,
+                ua1.avatar AS player_a1_avatar,
+                ua2.avatar AS player_a2_avatar,
+                ub1.avatar AS player_b1_avatar,
+                ub2.avatar AS player_b2_avatar
+            FROM matches m
+            LEFT JOIN tournaments t ON m.tournament_id = t.id
+            LEFT JOIN courts c ON m.court_id = c.id
+            LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+            LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+            LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
+            LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
+            LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
+            LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+            WHERE m.id = :id
+        """), {"id": match_id})
         row = result.mappings().first()
         if not row:
             raise HTTPException(status_code=404, detail="Match not found")
         m = dict(row)
         if isinstance(m.get("sets"), str):
             m["sets"] = json.loads(m["sets"])
-        if isinstance(m.get("current_game"), str):
-            m["current_game"] = json.loads(m["current_game"])
+        m["current_game"] = {}
         return m
+
 
 @app.post("/api/matches")
 def create_match(match: dict, payload: dict = Depends(require_admin)):
@@ -673,53 +769,38 @@ def create_match(match: dict, payload: dict = Depends(require_admin)):
             if row:
                 match["player_a1_id"] = row.get("player1_id")
                 match["player_a2_id"] = row.get("player2_id")
-                match["player_a1_name"] = row.get("player1_name")
-                match["player_a2_name"] = row.get("player2_name")
-                match["player_a1_avatar"] = row.get("player1_avatar")
-                match["player_a2_avatar"] = row.get("player2_avatar")
         if pair_b_id and not match.get("player_b1_id"):
             row = conn.execute(text("SELECT * FROM pairs WHERE id = :id"), {"id": pair_b_id}).mappings().first()
             if row:
                 match["player_b1_id"] = row.get("player1_id")
                 match["player_b2_id"] = row.get("player2_id")
-                match["player_b1_name"] = row.get("player1_name")
-                match["player_b2_name"] = row.get("player2_name")
-                match["player_b1_avatar"] = row.get("player1_avatar")
-                match["player_b2_avatar"] = row.get("player2_avatar")
+
         conn.execute(text("""
-            INSERT INTO matches (id, tournament_id, tournament_name, court_id, court_name, date_time,
-                pair_a_id, pair_b_id, pair_a_name, pair_b_name, player_a1_id, player_a2_id,
-                player_b1_id, player_b2_id, player_a1_name, player_a2_name, player_b1_name,
-                player_b2_name, player_a1_avatar, player_a2_avatar, player_b1_avatar, player_b2_avatar,
-                status, sets, current_game, current_set_index, winner_pair_id, winner_team,
-                start_time_ms, elapsed_time_sec, golden_point, sets_to_win, round_name)
-            VALUES (:id, :tournament_id, :tournament_name, :court_id, :court_name, :date_time,
-                :pair_a_id, :pair_b_id, :pair_a_name, :pair_b_name, :player_a1_id, :player_a2_id,
-                :player_b1_id, :player_b2_id, :player_a1_name, :player_a2_name, :player_b1_name,
-                :player_b2_name, :player_a1_avatar, :player_a2_avatar, :player_b1_avatar, :player_b2_avatar,
-                :status, :sets, :current_game, :current_set_index, :winner_pair_id, :winner_team,
-                :start_time_ms, :elapsed_time_sec, :golden_point, :sets_to_win, :round_name)
+            INSERT INTO matches (id, tournament_id, round_id, business_id, court_id, created_by,
+                pair_a_id, pair_b_id, date_time, status, visibility, sets, current_set_index,
+                winner_pair_id, winner_team, start_time_ms, elapsed_time_sec, golden_point,
+                sets_to_win, round_name)
+            VALUES (:id, :tournament_id, :round_id, :business_id, :court_id, :created_by,
+                :pair_a_id, :pair_b_id, :date_time, :status, :visibility, :sets, :current_set_index,
+                :winner_pair_id, :winner_team, :start_time_ms, :elapsed_time_sec, :golden_point,
+                :sets_to_win, :round_name)
         """), {
             "id": match["id"], "tournament_id": match.get("tournament_id"),
-            "tournament_name": match.get("tournament_name"), "court_id": match.get("court_id"),
-            "court_name": match.get("court_name"), "date_time": match.get("date_time"),
+            "round_id": match.get("round_id"), "business_id": match.get("business_id"),
+            "court_id": match.get("court_id"), "created_by": match.get("created_by"),
             "pair_a_id": match.get("pair_a_id"), "pair_b_id": match.get("pair_b_id"),
-            "pair_a_name": match.get("pair_a_name"), "pair_b_name": match.get("pair_b_name"),
-            "player_a1_id": match.get("player_a1_id"), "player_a2_id": match.get("player_a2_id"),
-            "player_b1_id": match.get("player_b1_id"), "player_b2_id": match.get("player_b2_id"),
-            "player_a1_name": match.get("player_a1_name"), "player_a2_name": match.get("player_a2_name"),
-            "player_b1_name": match.get("player_b1_name"), "player_b2_name": match.get("player_b2_name"),
-            "player_a1_avatar": match.get("player_a1_avatar"), "player_a2_avatar": match.get("player_a2_avatar"),
-            "player_b1_avatar": match.get("player_b1_avatar"), "player_b2_avatar": match.get("player_b2_avatar"),
-            "status": match.get("status", "UPCOMING"), "sets": json.dumps(match.get("sets", [])),
-            "current_game": json.dumps(match.get("current_game", {})),
+            "date_time": match.get("date_time"), "status": match.get("status", "SCHEDULED"),
+            "visibility": match.get("visibility", "PRIVATE"),
+            "sets": json.dumps(match.get("sets", [])),
             "current_set_index": match.get("current_set_index", 0),
             "winner_pair_id": match.get("winner_pair_id"), "winner_team": match.get("winner_team"),
             "start_time_ms": match.get("start_time_ms"), "elapsed_time_sec": match.get("elapsed_time_sec", 0),
-            "golden_point": match.get("golden_point", False), "sets_to_win": match.get("sets_to_win", 2),
+            "golden_point": 1 if match.get("golden_point") else 0,
+            "sets_to_win": match.get("sets_to_win", 2),
             "round_name": match.get("round_name"),
         })
     return match
+
 
 @app.put("/api/matches/{match_id}")
 def update_match(match_id: str, match: dict, payload: dict = Depends(get_current_user)):
@@ -729,42 +810,31 @@ def update_match(match_id: str, match: dict, payload: dict = Depends(get_current
         if not result.mappings().first():
             raise HTTPException(status_code=404, detail="Match not found")
         conn.execute(text("""
-            UPDATE matches SET tournament_id = :tournament_id, tournament_name = :tournament_name,
-                court_id = :court_id, court_name = :court_name, date_time = :date_time,
-                pair_a_id = :pair_a_id, pair_b_id = :pair_b_id, pair_a_name = :pair_a_name,
-                pair_b_name = :pair_b_name, player_a1_id = :player_a1_id, player_a2_id = :player_a2_id,
-                player_b1_id = :player_b1_id, player_b2_id = :player_b2_id,
-                player_a1_name = :player_a1_name, player_a2_name = :player_a2_name,
-                player_b1_name = :player_b1_name, player_b2_name = :player_b2_name,
-                player_a1_avatar = :player_a1_avatar, player_a2_avatar = :player_a2_avatar,
-                player_b1_avatar = :player_b1_avatar, player_b2_avatar = :player_b2_avatar,
-                status = :status, sets = :sets, current_game = :current_game,
-                current_set_index = :current_set_index, winner_pair_id = :winner_pair_id,
-                winner_team = :winner_team, start_time_ms = :start_time_ms,
-                elapsed_time_sec = :elapsed_time_sec, golden_point = :golden_point,
-                sets_to_win = :sets_to_win, round_name = :round_name
+            UPDATE matches SET tournament_id = :tournament_id, round_id = :round_id,
+                business_id = :business_id, court_id = :court_id, created_by = :created_by,
+                pair_a_id = :pair_a_id, pair_b_id = :pair_b_id, date_time = :date_time,
+                status = :status, visibility = :visibility, sets = :sets, current_set_index = :current_set_index,
+                winner_pair_id = :winner_pair_id, winner_team = :winner_team,
+                start_time_ms = :start_time_ms, elapsed_time_sec = :elapsed_time_sec,
+                golden_point = :golden_point, sets_to_win = :sets_to_win, round_name = :round_name
             WHERE id = :id
         """), {
             "id": match_id,
-            "tournament_id": match.get("tournament_id"), "tournament_name": match.get("tournament_name"),
-            "court_id": match.get("court_id"), "court_name": match.get("court_name"),
-            "date_time": match.get("date_time"), "pair_a_id": match.get("pair_a_id"), "pair_b_id": match.get("pair_b_id"),
-            "pair_a_name": match.get("pair_a_name"), "pair_b_name": match.get("pair_b_name"),
-            "player_a1_id": match.get("player_a1_id"), "player_a2_id": match.get("player_a2_id"),
-            "player_b1_id": match.get("player_b1_id"), "player_b2_id": match.get("player_b2_id"),
-            "player_a1_name": match.get("player_a1_name"), "player_a2_name": match.get("player_a2_name"),
-            "player_b1_name": match.get("player_b1_name"), "player_b2_name": match.get("player_b2_name"),
-            "player_a1_avatar": match.get("player_a1_avatar"), "player_a2_avatar": match.get("player_a2_avatar"),
-            "player_b1_avatar": match.get("player_b1_avatar"), "player_b2_avatar": match.get("player_b2_avatar"),
-            "status": match.get("status"), "sets": json.dumps(match.get("sets", [])),
-            "current_game": json.dumps(match.get("current_game", {})),
+            "tournament_id": match.get("tournament_id"), "round_id": match.get("round_id"),
+            "business_id": match.get("business_id"), "court_id": match.get("court_id"),
+            "created_by": match.get("created_by"), "pair_a_id": match.get("pair_a_id"),
+            "pair_b_id": match.get("pair_b_id"), "date_time": match.get("date_time"),
+            "status": match.get("status"), "visibility": match.get("visibility"),
+            "sets": json.dumps(match.get("sets", [])),
             "current_set_index": match.get("current_set_index", 0),
             "winner_pair_id": match.get("winner_pair_id"), "winner_team": match.get("winner_team"),
             "start_time_ms": match.get("start_time_ms"), "elapsed_time_sec": match.get("elapsed_time_sec", 0),
-            "golden_point": match.get("golden_point", False), "sets_to_win": match.get("sets_to_win", 2),
+            "golden_point": 1 if match.get("golden_point") else 0,
+            "sets_to_win": match.get("sets_to_win", 2),
             "round_name": match.get("round_name"),
         })
     return {**match, "id": match_id}
+
 
 @app.put("/api/matches/{match_id}/court")
 def update_match_court(match_id: str, body: dict, payload: dict = Depends(require_admin)):
@@ -774,9 +844,10 @@ def update_match_court(match_id: str, body: dict, payload: dict = Depends(requir
         result = conn.execute(text("SELECT * FROM matches WHERE id = :id"), {"id": match_id})
         if not result.mappings().first():
             raise HTTPException(status_code=404, detail="Match not found")
-        conn.execute(text("UPDATE matches SET court_id = :cid, court_name = :cname WHERE id = :id"),
-                     {"cid": court_id, "cname": court_name, "id": match_id})
+        conn.execute(text("UPDATE matches SET court_id = :cid WHERE id = :id"),
+                     {"cid": court_id, "id": match_id})
     return {"message": "Court updated", "court_id": court_id, "court_name": court_name}
+
 
 @app.delete("/api/matches/{match_id}")
 def delete_match(match_id: str, payload: dict = Depends(require_admin)):
@@ -786,6 +857,7 @@ def delete_match(match_id: str, payload: dict = Depends(require_admin)):
             raise HTTPException(status_code=404, detail="Match not found")
         conn.execute(text("DELETE FROM matches WHERE id = :id"), {"id": match_id})
     return {"message": "Match deleted", "match_id": match_id}
+
 
 @app.post("/api/matches/{match_id}/finish")
 def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_user)):
@@ -797,8 +869,6 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
         match = dict(row)
         if isinstance(match.get("sets"), str):
             match["sets"] = json.loads(match["sets"])
-        if isinstance(match.get("current_game"), str):
-            match["current_game"] = json.loads(match["current_game"])
 
         winner_team = body.get("winner_team") or match.get("winner_team")
         if not winner_team:
@@ -848,70 +918,32 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
             "winner_team": winner_team,
         })
 
-        def update_player_stats(user_id: str, won: bool):
+        def update_player_points(user_id: str, won: bool):
             if not user_id:
                 return
-            user_row = conn.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id}).mappings().first()
-            if not user_row:
-                return
-            stats = dict(user_row).get("stats")
-            if isinstance(stats, str):
-                stats = json.loads(stats) or {}
-            if not stats:
-                stats = {}
-            for k, v in DEFAULT_STATS.items():
-                stats.setdefault(k, v)
-
             sets = match.get("sets", [])
             if won:
                 player_winner = "A" if is_winner_a else "B"
+                base_points = 150
             else:
                 player_winner = "B" if is_winner_a else "A"
+                base_points = 30
             sets_won = sum(1 for s in sets if s.get("winner") == player_winner)
-            games_won = 0
-            games_lost = 0
-            for s in sets:
-                if s.get("winner") != player_winner:
-                    continue
-                if player_winner == "A":
-                    games_won += s.get("team_a_games", 0)
-                    games_lost += s.get("team_b_games", 0)
-                else:
-                    games_won += s.get("team_b_games", 0)
-                    games_lost += s.get("team_a_games", 0)
-
-            points = match.get("current_game", {})
-            points_won = points.get("team_a_points" if player_winner == "A" else "team_b_points", "0")
-            try:
-                points_won = int(points_won)
-            except Exception:
-                points_won = 0
-
-            stats["matchesPlayed"] = stats.get("matchesPlayed", 0) + 1
-            if won:
-                stats["matchesWon"] = stats.get("matchesWon", 0) + 1
-                stats["points"] = stats.get("points", 0) + 150
-            else:
-                stats["matchesLost"] = stats.get("matchesLost", 0) + 1
-                stats["points"] = stats.get("points", 0) + 30
-            stats["setsWon"] = stats.get("setsWon", 0) + sets_won
-            stats["setsLost"] = stats.get("setsLost", 0) + (len(sets) - sets_won)
-            stats["gamesWon"] = stats.get("gamesWon", 0) + games_won
-            stats["gamesLost"] = stats.get("gamesLost", 0) + games_lost
-            stats["pointsWon"] = stats.get("pointsWon", 0) + points_won
-
             conn.execute(text("""
-                UPDATE users SET stats = :stats, points = :points WHERE id = :id
+                INSERT INTO user_points (user_id, match_id, points, reason)
+                VALUES (:uid, :mid, :pts, :reason)
             """), {
-                "id": user_id,
-                "stats": json.dumps(stats),
-                "points": stats.get("points", 0),
+                "uid": user_id, "mid": match_id, "pts": base_points,
+                "reason": "match_finish_winner" if won else "match_finish_loser"
             })
+            conn.execute(text("""
+                UPDATE users SET points = points + :pts WHERE id = :uid
+            """), {"pts": base_points, "uid": user_id})
 
         for pid in winner_player_ids:
-            update_player_stats(pid, True)
+            update_player_points(pid, True)
         for pid in loser_player_ids:
-            update_player_stats(pid, False)
+            update_player_points(pid, False)
 
     if body.get("create_notification") and body.get("notification"):
         notif = body["notification"]
@@ -921,15 +953,16 @@ def finish_match(match_id: str, body: dict, payload: dict = Depends(get_current_
             pass
     return {"message": "Match finished", "match_id": match_id, "winner_team": winner_team}
 
+
 @app.post("/api/matches/{match_id}/events")
 def create_match_event(match_id: str, event: dict, payload: dict = Depends(get_current_user)):
     event = normalize_match_payload(event)
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO match_events (id, match_id, set_number, game_number, timestamp,
-                winning_pair_id, player_id, player_name, event_type, description, score_snapshot)
+                winning_pair_id, player_id, event_type, description, score_snapshot)
             VALUES (:id, :match_id, :set_number, :game_number, :timestamp,
-                :winning_pair_id, :player_id, :player_name, :event_type, :description, :score_snapshot)
+                :winning_pair_id, :player_id, :event_type, :description, :score_snapshot)
         """), {
             "id": event["id"],
             "match_id": match_id,
@@ -938,7 +971,6 @@ def create_match_event(match_id: str, event: dict, payload: dict = Depends(get_c
             "timestamp": event.get("timestamp", ""),
             "winning_pair_id": event.get("winning_pair_id"),
             "player_id": event.get("player_id"),
-            "player_name": event.get("player_name"),
             "event_type": event.get("event_type", "POINT"),
             "description": event.get("description"),
             "score_snapshot": event.get("score_snapshot"),
@@ -954,19 +986,21 @@ def get_audit_logs(payload: dict = Depends(require_admin)):
         logs = [dict(row) for row in result.mappings()]
         return logs
 
+
 @app.post("/api/audit-logs")
 def create_audit_log(log: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO audit_logs (id, admin_name, admin_email, action, target, details, timestamp)
-            VALUES (:id, :admin_name, :admin_email, :action, :target, :details, :timestamp)
+            INSERT INTO audit_logs (id, business_id, user_id, action, target_type, target_id, details, timestamp)
+            VALUES (:id, :business_id, :user_id, :action, :target_type, :target_id, :details, :timestamp)
             ON DUPLICATE KEY UPDATE
-                admin_name = VALUES(admin_name), admin_email = VALUES(admin_email),
-                action = VALUES(action), target = VALUES(target),
-                details = VALUES(details), timestamp = VALUES(timestamp)
+                business_id = VALUES(business_id), user_id = VALUES(user_id),
+                action = VALUES(action), target_type = VALUES(target_type),
+                target_id = VALUES(target_id), details = VALUES(details), timestamp = VALUES(timestamp)
         """), {
-            "id": log["id"], "admin_name": log["admin_name"], "admin_email": log["admin_email"],
-            "action": log["action"], "target": log["target"], "details": log.get("details"),
+            "id": log["id"], "business_id": log.get("business_id"), "user_id": log.get("user_id"),
+            "action": log["action"], "target_type": log.get("target_type", "unknown"),
+            "target_id": log.get("target_id", ""), "details": json.dumps(log.get("details", {})),
             "timestamp": log["timestamp"],
         })
     return log
@@ -980,19 +1014,21 @@ def get_notifications(payload: dict = Depends(get_current_user)):
         notifs = [dict(row) for row in result.mappings()]
         return notifs
 
+
 @app.post("/api/notifications")
 def create_notification(notification: dict, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         conn.execute(text("""
-            INSERT INTO notifications (id, title, body, timestamp, `read`, `type`, link_id)
-            VALUES (:id, :title, :body, :timestamp, :read, :type, :link_id)
+            INSERT INTO notifications (id, user_id, title, body, timestamp, read_status, type, link_id)
+            VALUES (:id, :user_id, :title, :body, :timestamp, :read_status, :type, :link_id)
             ON DUPLICATE KEY UPDATE
-                title = VALUES(title), body = VALUES(body), timestamp = VALUES(timestamp),
-                `read` = VALUES(`read`), `type` = VALUES(`type`), link_id = VALUES(link_id)
+                title = VALUES(title), body = VALUES(body), read_status = VALUES(read_status),
+                type = VALUES(type), link_id = VALUES(link_id)
         """), {
-            "id": notification["id"], "title": notification["title"], "body": notification.get("body"),
-            "timestamp": notification["timestamp"], "read": notification.get("read", False),
-            "type": notification["type"], "link_id": notification.get("link_id"),
+            "id": notification["id"], "user_id": notification.get("user_id"),
+            "title": notification["title"], "body": notification.get("body"),
+            "timestamp": notification["timestamp"], "read_status": 1 if notification.get("read") else 0,
+            "type": notification.get("type"), "link_id": notification.get("link_id"),
         })
     return notification
 
@@ -1003,19 +1039,19 @@ def get_stats():
     with engine.connect() as conn:
         total_matches = conn.execute(text("SELECT COUNT(*) FROM matches")).scalar()
         total_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments")).scalar()
-        total_players = conn.execute(text("SELECT COUNT(*) FROM users WHERE role = 'PLAYER'")).scalar()
+        total_players = conn.execute(text("SELECT COUNT(*) FROM users")).scalar()
         total_pairs = conn.execute(text("SELECT COUNT(*) FROM pairs")).scalar()
         total_courts = conn.execute(text("SELECT COUNT(*) FROM courts")).scalar()
         total_notifications = conn.execute(text("SELECT COUNT(*) FROM notifications")).scalar()
         total_audit_logs = conn.execute(text("SELECT COUNT(*) FROM audit_logs")).scalar()
 
-        live_matches = conn.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'LIVE'")).scalar()
-        upcoming_matches = conn.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'UPCOMING'")).scalar()
+        live_matches = conn.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'IN_PROGRESS'")).scalar()
+        upcoming_matches = conn.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'SCHEDULED'")).scalar()
         finished_matches = conn.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'FINISHED'")).scalar()
 
-        active_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments WHERE status = 'ACTIVE'")).scalar()
-        registration_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments WHERE status = 'REGISTRATION'")).scalar()
-        upcoming_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments WHERE status = 'UPCOMING'")).scalar()
+        active_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments WHERE status = 'IN_PROGRESS'")).scalar()
+        open_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments WHERE status = 'OPEN'")).scalar()
+        draft_tournaments = conn.execute(text("SELECT COUNT(*) FROM tournaments WHERE status = 'DRAFT'")).scalar()
 
         return {
             "total_players": total_players,
@@ -1032,8 +1068,8 @@ def get_stats():
             },
             "tournaments_by_status": {
                 "active": active_tournaments,
-                "registration": registration_tournaments,
-                "upcoming": upcoming_tournaments
+                "open": open_tournaments,
+                "draft": draft_tournaments
             }
         }
 
@@ -1042,16 +1078,19 @@ def get_stats():
 @app.get("/api/db/users")
 def db_get_users(payload: dict = Depends(require_admin)):
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM users ORDER BY points DESC"))
+        result = conn.execute(text("""
+            SELECT u.*, ua.email as auth_email,
+                   (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+            FROM users u
+            LEFT JOIN users_auth ua ON u.id = ua.user_id
+            ORDER BY u.points DESC
+        """))
         users = []
         for row in result.mappings():
             user = dict(row)
-            if isinstance(user.get("stats"), str):
-                user["stats"] = json.loads(user["stats"])
-            if not user.get("stats"):
-                user["stats"] = {}
-            users.append(user)
+            users.append(_build_user_response(user, user.get("role_name")))
         return users
+
 
 @app.get("/api/db/matches")
 def db_get_matches(payload: dict = Depends(require_admin)):
@@ -1062,7 +1101,5 @@ def db_get_matches(payload: dict = Depends(require_admin)):
             m = dict(row)
             if isinstance(m.get("sets"), str):
                 m["sets"] = json.loads(m["sets"])
-            if isinstance(m.get("current_game"), str):
-                m["current_game"] = json.loads(m["current_game"])
             matches.append(m)
         return matches
