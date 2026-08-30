@@ -181,15 +181,6 @@ def health():
     }
 
 
-@app.post("/api/admin/migrate")
-def admin_migrate(payload: dict = Depends(require_admin)):
-    try:
-        with engine.begin() as conn:
-            migrate_schema(conn)
-        return {"status": "ok", "message": "Migration applied"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Migration failed: {e}")
-
 # ==================== AUTH ====================
 
 @app.post("/api/auth/register")
@@ -330,6 +321,16 @@ def require_admin(payload: dict = Depends(get_current_user)):
     if payload.get("role") != "ADMIN":
         raise HTTPException(status_code=403, detail="Admin access required")
     return payload
+
+
+@app.post("/api/admin/migrate")
+def admin_migrate(payload: dict = Depends(require_admin)):
+    try:
+        with engine.begin() as conn:
+            migrate_schema(conn)
+        return {"status": "ok", "message": "Migration applied"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Migration failed: {e}")
 
 
 def _build_user_response(user: dict, role_name: Optional[str] = None) -> dict:
