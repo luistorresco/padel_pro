@@ -650,6 +650,26 @@ def migrate_schema(conn):
                 conn.execute(text("ALTER TABLE users_auth DROP COLUMN role"))
             except Exception:
                 pass
+        if "last_login" not in cols:
+            try:
+                conn.execute(text("ALTER TABLE users_auth ADD COLUMN last_login DATETIME NULL"))
+            except Exception:
+                pass
+        if "email_verified_at" not in cols:
+            try:
+                conn.execute(text("ALTER TABLE users_auth ADD COLUMN email_verified_at DATETIME NULL"))
+            except Exception:
+                pass
+        if "created_at" not in cols:
+            try:
+                conn.execute(text("ALTER TABLE users_auth ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"))
+            except Exception:
+                pass
+        if "updated_at" not in cols:
+            try:
+                conn.execute(text("ALTER TABLE users_auth ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+            except Exception:
+                pass
     except Exception:
         pass
 

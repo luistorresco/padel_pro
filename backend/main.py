@@ -237,8 +237,11 @@ def login(body: dict = Body(...)):
             """), {"uid": user_id}).mappings().first()
             role = role_row["name"] if role_row else "PLAYER"
 
-        conn.execute(text("UPDATE users_auth SET last_login = :now WHERE user_id = :uid"),
-                     {"now": datetime.utcnow(), "uid": user_id})
+        try:
+            conn.execute(text("UPDATE users_auth SET last_login = :now WHERE user_id = :uid"),
+                         {"now": datetime.utcnow(), "uid": user_id})
+        except Exception:
+            pass
 
         token = create_access_token(user_id, role)
         return {"access_token": token, "token_type": "bearer", "user_id": user_id, "role": role}
