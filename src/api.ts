@@ -149,6 +149,13 @@ export const api = {
 
   getStats: () => fetch(`${API_BASE_NORMALIZED}/api/stats`, { headers: mergeHeaders() }).then(handleResponse),
 
+  health: () => fetch(`${API_BASE_NORMALIZED}/api/health`).then(handleResponse),
+
+  adminMigrate: () => fetch(`${API_BASE_NORMALIZED}/api/admin/migrate`, {
+    method: 'POST',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+  }).then(handleResponse),
+
   login: (email: string, password: string) => fetch(`${API_BASE_NORMALIZED}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

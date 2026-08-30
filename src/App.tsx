@@ -123,6 +123,29 @@ export default function App() {
           }
         }
 
+        let backendAvailable = false;
+        try {
+          const health = await api.health();
+          backendAvailable = !!health && health.status === 'ok';
+        } catch {
+          backendAvailable = false;
+        }
+
+        if (!backendAvailable) {
+          if (!cancelled) {
+            setUsingFallback(true);
+          }
+          return;
+        }
+
+        if (role === 'ADMIN') {
+          try {
+            await api.adminMigrate();
+          } catch {
+            // non-blocking
+          }
+        }
+
         const [usersResult, pairsData, tournamentsData, matchesData, courtsData, auditLogsData, notificationsData] = await Promise.allSettled([
           api.getUsers(),
           api.getPairs(),

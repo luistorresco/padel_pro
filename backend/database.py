@@ -684,6 +684,10 @@ def migrate_schema(conn):
         match_alters = {
             "round_id": "ALTER TABLE matches ADD COLUMN round_id VARCHAR(255) NULL",
             "business_id": "ALTER TABLE matches ADD COLUMN business_id VARCHAR(255) NULL",
+            "court_id": "ALTER TABLE matches ADD COLUMN court_id VARCHAR(255) NULL",
+            "created_by": "ALTER TABLE matches ADD COLUMN created_by VARCHAR(255) NOT NULL DEFAULT ''",
+            "pair_a_id": "ALTER TABLE matches ADD COLUMN pair_a_id VARCHAR(255) NULL",
+            "pair_b_id": "ALTER TABLE matches ADD COLUMN pair_b_id VARCHAR(255) NULL",
             "visibility": "ALTER TABLE matches ADD COLUMN visibility ENUM('PUBLIC','PRIVATE') NOT NULL DEFAULT 'PRIVATE'",
             "current_set_index": "ALTER TABLE matches ADD COLUMN current_set_index INT NOT NULL DEFAULT 0",
             "winner_pair_id": "ALTER TABLE matches ADD COLUMN winner_pair_id VARCHAR(255) NULL",

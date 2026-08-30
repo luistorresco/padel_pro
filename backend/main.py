@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Header, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Any
-from database import init_db, engine
+from database import init_db, engine, migrate_schema
 from sqlalchemy import text
 from jose import JWTError, jwt
 import bcrypt
@@ -139,16 +139,56 @@ def root():
 
 @app.get("/api")
 def api_info():
-    return {"service": "Padel Pro Backend", "version": "1.0.0", "endpoints": [
-        "/api/auth/login", "/api/auth/register", "/api/auth/me",
-        "/api/users", "/api/users/me", "/api/users/{user_id}",
-        "/api/pairs", "/api/pairs/{pair_id}",
-        "/api/tournaments", "/api/tournaments/{tournament_id}",
-        "/api/courts", "/api/courts/{court_id}",
-        "/api/matches", "/api/matches/{match_id}",
-        "/api/audit-logs", "/api/notifications",
-        "/api/gesture-config", "/api/stats"
-    ]}
+    return {
+        "service": "Padel Pro Backend",
+        "version": "1.0.0",
+        "endpoints": [
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/me",
+            "/api/users",
+            "/api/users/me",
+            "/api/users/{user_id}",
+            "/api/pairs",
+            "/api/pairs/{pair_id}",
+            "/api/tournaments",
+            "/api/tournaments/{tournament_id}",
+            "/api/courts",
+            "/api/courts/{court_id}",
+            "/api/matches",
+            "/api/matches/{match_id}",
+            "/api/audit-logs",
+            "/api/notifications",
+            "/api/stats",
+            "/api/health",
+            "/api/admin/migrate",
+        ],
+    }
+
+
+@app.get("/api/health")
+def health():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        db_ok = False
+    return {
+        "status": "ok",
+        "db": db_ok,
+        "service": "padel-pro-backend",
+    }
+
+
+@app.post("/api/admin/migrate")
+def admin_migrate(payload: dict = Depends(require_admin)):
+    try:
+        with engine.begin() as conn:
+            migrate_schema(conn)
+        return {"status": "ok", "message": "Migration applied"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Migration failed: {e}")
 
 # ==================== AUTH ====================
 
