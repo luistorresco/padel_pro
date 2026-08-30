@@ -191,6 +191,9 @@ def register(body: dict = Body(...)):
         conn.execute(text("""
             INSERT INTO users_auth (user_id, email, hashed_password)
             VALUES (:user_id, :email, :hashed_password)
+            ON DUPLICATE KEY UPDATE
+                email = VALUES(email),
+                hashed_password = VALUES(hashed_password)
         """), {
             "user_id": user_id,
             "email": email,
@@ -223,14 +226,16 @@ def login(body: dict = Body(...)):
         if not bcrypt.checkpw(password.encode("utf-8"), auth_user["hashed_password"].encode("utf-8")):
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
-        user_id = auth_user["user_id"]
-        role_row = conn.execute(text("""
-            SELECT r.name FROM user_roles ur
-            JOIN roles r ON ur.role_id = r.id
-            WHERE ur.user_id = :uid
-            LIMIT 1
-        """), {"uid": user_id}).mappings().first()
-        role = role_row["name"] if role_row else "PLAYER"
+        user_id = auth_user.get("user_id") or auth_user.get("id")
+        role = auth_user.get("role")
+        if role is None:
+            role_row = conn.execute(text("""
+                SELECT r.name FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = :uid
+                LIMIT 1
+            """), {"uid": user_id}).mappings().first()
+            role = role_row["name"] if role_row else "PLAYER"
 
         conn.execute(text("UPDATE users_auth SET last_login = :now WHERE user_id = :uid"),
                      {"now": datetime.utcnow(), "uid": user_id})

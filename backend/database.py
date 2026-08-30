@@ -631,9 +631,33 @@ def seed_data(conn, data):
         })
 
 
+def migrate_schema(conn):
+    try:
+        cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users_auth'
+            """)).mappings()
+        ]
+        if "id" in cols and "user_id" not in cols:
+            conn.execute(text("""
+                ALTER TABLE users_auth
+                CHANGE COLUMN id user_id VARCHAR(255) NOT NULL
+            """))
+        if "role" in cols:
+            try:
+                conn.execute(text("ALTER TABLE users_auth DROP COLUMN role"))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def init_db():
     with engine.begin() as conn:
         create_schema(conn)
+        migrate_schema(conn)
         result = conn.execute(text("SELECT COUNT(*) as cnt FROM users"))
         row = result.mappings().first()
         if row and row["cnt"] == 0:
