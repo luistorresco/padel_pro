@@ -293,21 +293,27 @@ def require_admin(payload: dict = Depends(get_current_user)):
 
 
 def _build_user_response(user: dict, role_name: Optional[str] = None) -> dict:
+    level = user.get("level") or "Intermedio"
+    position = user.get("position") or "Drive (Derecha)"
+    dominant_hand = user.get("dominant_hand") or "Derecha"
+    stats = user.get("stats")
+    if not stats:
+        stats = {}
     return {
         "id": user.get("id"),
-        "name": user.get("name"),
-        "surname": user.get("surname"),
-        "username": user.get("username"),
-        "email": user.get("email"),
-        "avatar": user.get("avatar"),
-        "level": user.get("level"),
-        "position": user.get("position"),
-        "dominant_hand": user.get("dominant_hand"),
-        "points": user.get("points", 0),
-        "stats": {},
-        "role": role_name,
-        "account_type": user.get("account_type"),
-        "status": user.get("status"),
+        "name": user.get("name") or "",
+        "surname": user.get("surname") or "",
+        "username": user.get("username") or "",
+        "email": user.get("email") or "",
+        "avatar": user.get("avatar") or "",
+        "level": level,
+        "position": position,
+        "dominant_hand": dominant_hand,
+        "points": user.get("points") or 0,
+        "stats": stats,
+        "role": role_name or "PLAYER",
+        "account_type": user.get("account_type") or "USER",
+        "status": user.get("status") or "ACTIVE",
         "invitation_code": user.get("invitation_code"),
         "created_at": user.get("created_at"),
         "updated_at": user.get("updated_at"),
@@ -511,21 +517,37 @@ def delete_pair(pair_id: str, payload: dict = Depends(require_admin)):
 # ==================== TOURNAMENTS ====================
 
 def _build_tournament_response(t: dict) -> dict:
+    rules = t.get("rules")
+    if isinstance(rules, str):
+        try:
+            rules = json.loads(rules)
+        except Exception:
+            rules = {}
+    if not rules or not isinstance(rules, dict):
+        rules = {}
+    if "pointsDistribution" not in rules:
+        rules["pointsDistribution"] = {
+            "champion": 1000,
+            "runnerUp": 600,
+            "semiFinals": 360,
+            "quarterFinals": 180,
+            "groupStage": 90,
+        }
     return {
         "id": t.get("id"),
-        "name": t.get("name"),
-        "logo": t.get("logo"),
-        "description": t.get("description"),
-        "category": t.get("category"),
-        "level": t.get("level"),
-        "location": t.get("location"),
+        "name": t.get("name") or "",
+        "logo": t.get("logo") or "🏆",
+        "description": t.get("description") or "",
+        "category": t.get("category") or "Masculino",
+        "level": t.get("level") or "Intermedio",
+        "location": t.get("location") or "",
         "start_date": t.get("start_date"),
         "end_date": t.get("end_date"),
-        "status": t.get("status"),
-        "format": t.get("format"),
-        "max_pairs": t.get("max_pairs"),
-        "visibility": t.get("visibility"),
-        "rules": json.loads(t["rules"]) if isinstance(t.get("rules"), str) else (t.get("rules") or {}),
+        "status": t.get("status") or "DRAFT",
+        "format": t.get("format") or "Eliminación directa",
+        "max_pairs": t.get("max_pairs") or 0,
+        "visibility": t.get("visibility") or "PRIVATE",
+        "rules": rules,
         "registered_pair_ids": t.get("registered_pair_ids", []),
         "registered_user_ids": t.get("registered_user_ids", []),
         "court_ids": t.get("court_ids", []),
@@ -700,18 +722,18 @@ def get_matches():
     with engine.connect() as conn:
         result = conn.execute(text("""
             SELECT m.*,
-                t.name AS tournament_name,
-                c.name AS court_name,
-                pa.name AS pair_a_name,
-                pb.name AS pair_b_name,
-                ua1.name AS player_a1_name,
-                ua2.name AS player_a2_name,
-                ub1.name AS player_b1_name,
-                ub2.name AS player_b2_name,
-                ua1.avatar AS player_a1_avatar,
-                ua2.avatar AS player_a2_avatar,
-                ub1.avatar AS player_b1_avatar,
-                ub2.avatar AS player_b2_avatar
+                COALESCE(t.name, '') AS tournament_name,
+                COALESCE(c.name, '') AS court_name,
+                COALESCE(pa.name, '') AS pair_a_name,
+                COALESCE(pb.name, '') AS pair_b_name,
+                COALESCE(ua1.name, '') AS player_a1_name,
+                COALESCE(ua2.name, '') AS player_a2_name,
+                COALESCE(ub1.name, '') AS player_b1_name,
+                COALESCE(ub2.name, '') AS player_b2_name,
+                COALESCE(ua1.avatar, '') AS player_a1_avatar,
+                COALESCE(ua2.avatar, '') AS player_a2_avatar,
+                COALESCE(ub1.avatar, '') AS player_b1_avatar,
+                COALESCE(ub2.avatar, '') AS player_b2_avatar
             FROM matches m
             LEFT JOIN tournaments t ON m.tournament_id = t.id
             LEFT JOIN courts c ON m.court_id = c.id
@@ -738,18 +760,18 @@ def get_match(match_id: str):
     with engine.connect() as conn:
         result = conn.execute(text("""
             SELECT m.*,
-                t.name AS tournament_name,
-                c.name AS court_name,
-                pa.name AS pair_a_name,
-                pb.name AS pair_b_name,
-                ua1.name AS player_a1_name,
-                ua2.name AS player_a2_name,
-                ub1.name AS player_b1_name,
-                ub2.name AS player_b2_name,
-                ua1.avatar AS player_a1_avatar,
-                ua2.avatar AS player_a2_avatar,
-                ub1.avatar AS player_b1_avatar,
-                ub2.avatar AS player_b2_avatar
+                COALESCE(t.name, '') AS tournament_name,
+                COALESCE(c.name, '') AS court_name,
+                COALESCE(pa.name, '') AS pair_a_name,
+                COALESCE(pb.name, '') AS pair_b_name,
+                COALESCE(ua1.name, '') AS player_a1_name,
+                COALESCE(ua2.name, '') AS player_a2_name,
+                COALESCE(ub1.name, '') AS player_b1_name,
+                COALESCE(ub2.name, '') AS player_b2_name,
+                COALESCE(ua1.avatar, '') AS player_a1_avatar,
+                COALESCE(ua2.avatar, '') AS player_a2_avatar,
+                COALESCE(ub1.avatar, '') AS player_b1_avatar,
+                COALESCE(ub2.avatar, '') AS player_b2_avatar
             FROM matches m
             LEFT JOIN tournaments t ON m.tournament_id = t.id
             LEFT JOIN courts c ON m.court_id = c.id
