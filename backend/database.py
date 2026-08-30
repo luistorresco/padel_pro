@@ -673,6 +673,37 @@ def migrate_schema(conn):
     except Exception:
         pass
 
+    try:
+        match_cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'matches'
+            """)).mappings()
+        ]
+        match_alters = {
+            "round_id": "ALTER TABLE matches ADD COLUMN round_id VARCHAR(255) NULL",
+            "business_id": "ALTER TABLE matches ADD COLUMN business_id VARCHAR(255) NULL",
+            "visibility": "ALTER TABLE matches ADD COLUMN visibility ENUM('PUBLIC','PRIVATE') NOT NULL DEFAULT 'PRIVATE'",
+            "current_set_index": "ALTER TABLE matches ADD COLUMN current_set_index INT NOT NULL DEFAULT 0",
+            "winner_pair_id": "ALTER TABLE matches ADD COLUMN winner_pair_id VARCHAR(255) NULL",
+            "winner_team": "ALTER TABLE matches ADD COLUMN winner_team ENUM('A','B') NULL",
+            "start_time_ms": "ALTER TABLE matches ADD COLUMN start_time_ms BIGINT NULL",
+            "elapsed_time_sec": "ALTER TABLE matches ADD COLUMN elapsed_time_sec INT NOT NULL DEFAULT 0",
+            "golden_point": "ALTER TABLE matches ADD COLUMN golden_point TINYINT(1) NOT NULL DEFAULT 0",
+            "sets_to_win": "ALTER TABLE matches ADD COLUMN sets_to_win INT NOT NULL DEFAULT 2",
+            "round_name": "ALTER TABLE matches ADD COLUMN round_name VARCHAR(100) NULL",
+            "deleted_at": "ALTER TABLE matches ADD COLUMN deleted_at DATETIME NULL",
+        }
+        for col, stmt in match_alters.items():
+            if col not in match_cols:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
 
 def init_db():
     with engine.begin() as conn:
