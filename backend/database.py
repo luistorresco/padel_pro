@@ -776,6 +776,36 @@ def migrate_schema(conn):
         pass
 
     try:
+        user_cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+            """)).mappings()
+        ]
+        user_alters = {
+            "account_type": "ALTER TABLE users ADD COLUMN account_type ENUM('GUEST','USER') NOT NULL DEFAULT 'GUEST'",
+            "status": "ALTER TABLE users ADD COLUMN status ENUM('ACTIVE','INACTIVE','BLOCKED') NOT NULL DEFAULT 'ACTIVE'",
+            "invited_by": "ALTER TABLE users ADD COLUMN invited_by VARCHAR(255) NULL",
+            "invitation_code": "ALTER TABLE users ADD COLUMN invitation_code VARCHAR(100) NULL",
+            "converted_at": "ALTER TABLE users ADD COLUMN converted_at DATETIME NULL",
+            "level": "ALTER TABLE users ADD COLUMN level VARCHAR(50) NULL",
+            "position": "ALTER TABLE users ADD COLUMN position VARCHAR(50) NULL",
+            "dominant_hand": "ALTER TABLE users ADD COLUMN dominant_hand ENUM('RIGHT','LEFT','BOTH') NULL",
+            "deleted_at": "ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL",
+            "created_at": "ALTER TABLE users ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "ALTER TABLE users ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        }
+        for col, stmt in user_alters.items():
+            if col not in user_cols:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
         match_cols = [
             r["COLUMN_NAME"]
             for r in conn.execute(text("""
