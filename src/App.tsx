@@ -123,18 +123,31 @@ export default function App() {
           }
         }
 
-        const [usersResult, pairsData, tournamentsData, matchesData, courtsData] = await Promise.all([
+        const [usersResult, pairsData, tournamentsData, matchesData, courtsData, auditLogsData, notificationsData] = await Promise.allSettled([
           api.getUsers(),
           api.getPairs(),
           api.getTournaments(),
           api.getMatches(),
           api.getCourts(),
+          api.getAuditLogs(),
+          api.getNotifications(),
         ]);
 
         if (cancelled) return;
 
-        if (usersResult && usersResult.length > 0) {
-          const normalizedUsers = usersResult.map((u: any) => ({
+        const extract = <T>(item: PromiseSettledResult<T>): T | undefined =>
+          item.status === 'fulfilled' ? item.value : undefined;
+
+        const users = extract(usersResult);
+        const pairs = extract(pairsData);
+        const tournaments = extract(tournamentsData);
+        const matches = extract(matchesData);
+        const courts = extract(courtsData);
+        const auditLogs = extract(auditLogsData);
+        const notifications = extract(notificationsData);
+
+        if (users && users.length > 0) {
+          const normalizedUsers = users.map((u: any) => ({
             ...u,
             stats: u.stats && typeof u.stats === 'object' ? u.stats : EMPTY_STATS,
             avatar: u.avatar || '',
@@ -158,9 +171,9 @@ export default function App() {
             }
           }
         }
-        if (pairsData) setPairs(pairsData as Pair[]);
-        if (tournamentsData) {
-          const normalizedTournaments = tournamentsData.map((t: any) => ({
+        if (pairs) setPairs(pairs as Pair[]);
+        if (tournaments) {
+          const normalizedTournaments = tournaments.map((t: any) => ({
             ...t,
             status: normalizeTournamentStatus(t.status),
             startDate: t.start_date || t.startDate || '',
@@ -168,8 +181,8 @@ export default function App() {
           }));
           setTournaments(normalizedTournaments as Tournament[]);
         }
-        if (matchesData) {
-          const normalizedMatches = (matchesData as Match[]).map((m) => ({
+        if (matches) {
+          const normalizedMatches = (matches as Match[]).map((m) => ({
             ...m,
             status: normalizeMatchStatus(m.status),
             currentGame: m.currentGame && typeof m.currentGame === 'object' && Object.keys(m.currentGame).length > 0
@@ -190,19 +203,9 @@ export default function App() {
           }));
           setMatches(normalizedMatches);
         }
-        if (courtsData) setCourts(courtsData as Court[]);
-
-        try {
-          const [auditLogsData, notificationsData] = await Promise.all([
-            api.getAuditLogs(),
-            api.getNotifications(),
-          ]);
-          if (cancelled) return;
-          if (auditLogsData) setAuditLogs(auditLogsData as AuditLog[]);
-          if (notificationsData) setNotifications(notificationsData as NotificationItem[]);
-        } catch {
-          // Non-critical data can fail without breaking the whole app
-        }
+        if (courts) setCourts(courts as Court[]);
+        if (auditLogs) setAuditLogs(auditLogs as AuditLog[]);
+        if (notifications) setNotifications(notifications as NotificationItem[]);
       } catch (error) {
         console.warn('[App] Backend unavailable, using local fallback data.', error);
         if (!cancelled) {

@@ -728,58 +728,118 @@ def update_court(court_id: str, court: dict, payload: dict = Depends(require_adm
 @app.get("/api/matches")
 def get_matches():
     with engine.connect() as conn:
-        result = conn.execute(text("""
-            SELECT m.id,
-                m.tournament_id AS tournamentId,
-                m.round_id AS roundId,
-                m.business_id AS businessId,
-                m.court_id AS courtId,
-                m.created_by AS createdBy,
-                m.pair_a_id AS pairAId,
-                m.pair_b_id AS pairBId,
-                m.date_time AS dateTime,
-                m.status,
-                m.visibility,
-                m.sets,
-                m.current_set_index AS currentSetIndex,
-                m.winner_pair_id AS winnerPairId,
-                m.winner_team AS winnerTeam,
-                m.start_time_ms AS startTimeMs,
-                m.elapsed_time_sec AS elapsedTimeSec,
-                m.golden_point AS goldenPoint,
-                m.sets_to_win AS setsToWin,
-                m.round_name AS roundName,
-                m.created_at AS createdAt,
-                m.updated_at AS updatedAt,
-                m.deleted_at AS deletedAt,
-                t.name AS tournamentName,
-                c.name AS courtName,
-                pa.name AS pairAName,
-                pb.name AS pairBName,
-                ua1.name AS playerA1Name,
-                ua2.name AS playerA2Name,
-                ub1.name AS playerB1Name,
-                ub2.name AS playerB2Name,
-                ua1.avatar AS playerA1Avatar,
-                ua2.avatar AS playerA2Avatar,
-                ub1.avatar AS playerB1Avatar,
-                ub2.avatar AS playerB2Avatar
-            FROM matches m
-            LEFT JOIN tournaments t ON m.tournament_id = t.id
-            LEFT JOIN courts c ON m.court_id = c.id
-            LEFT JOIN pairs pa ON m.pair_a_id = pa.id
-            LEFT JOIN pairs pb ON m.pair_b_id = pb.id
-            LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
-            LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
-            LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
-            LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
-            ORDER BY m.date_time
-        """))
+        try:
+            result = conn.execute(text("""
+                SELECT m.id,
+                    m.tournament_id AS tournamentId,
+                    m.round_id AS roundId,
+                    m.business_id AS businessId,
+                    m.court_id AS courtId,
+                    m.created_by AS createdBy,
+                    m.pair_a_id AS pairAId,
+                    m.pair_b_id AS pairBId,
+                    m.date_time AS dateTime,
+                    m.status,
+                    m.visibility,
+                    m.sets,
+                    m.current_set_index AS currentSetIndex,
+                    m.winner_pair_id AS winnerPairId,
+                    m.winner_team AS winnerTeam,
+                    m.start_time_ms AS startTimeMs,
+                    m.elapsed_time_sec AS elapsedTimeSec,
+                    m.golden_point AS goldenPoint,
+                    m.sets_to_win AS setsToWin,
+                    m.round_name AS roundName,
+                    m.created_at AS createdAt,
+                    m.updated_at AS updatedAt,
+                    m.deleted_at AS deletedAt,
+                    t.name AS tournamentName,
+                    c.name AS courtName,
+                    pa.name AS pairAName,
+                    pb.name AS pairBName,
+                    ua1.name AS playerA1Name,
+                    ua2.name AS playerA2Name,
+                    ub1.name AS playerB1Name,
+                    ub2.name AS playerB2Name,
+                    ua1.avatar AS playerA1Avatar,
+                    ua2.avatar AS playerA2Avatar,
+                    ub1.avatar AS playerB1Avatar,
+                    ub2.avatar AS playerB2Avatar
+                FROM matches m
+                LEFT JOIN tournaments t ON m.tournament_id = t.id
+                LEFT JOIN courts c ON m.court_id = c.id
+                LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+                LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+                LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
+                LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
+                LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
+                LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+                ORDER BY m.date_time
+            """))
+        except Exception:
+            result = conn.execute(text("""
+                SELECT m.id,
+                    m.tournament_id AS tournamentId,
+                    m.court_id AS courtId,
+                    m.created_by AS createdBy,
+                    m.pair_a_id AS pairAId,
+                    m.pair_b_id AS pairBId,
+                    m.date_time AS dateTime,
+                    m.status,
+                    m.sets,
+                    m.created_at AS createdAt,
+                    m.updated_at AS updatedAt,
+                    t.name AS tournamentName,
+                    c.name AS courtName,
+                    pa.name AS pairAName,
+                    pb.name AS pairBName,
+                    ua1.name AS playerA1Name,
+                    ua2.name AS playerA2Name,
+                    ub1.name AS playerB1Name,
+                    ub2.name AS playerB2Name,
+                    ua1.avatar AS playerA1Avatar,
+                    ua2.avatar AS playerA2Avatar,
+                    ub1.avatar AS playerB1Avatar,
+                    ub2.avatar AS playerB2Avatar
+                FROM matches m
+                LEFT JOIN tournaments t ON m.tournament_id = t.id
+                LEFT JOIN courts c ON m.court_id = c.id
+                LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+                LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+                LEFT JOIN users ua1 ON m.player_a1_id = ua1.id
+                LEFT JOIN users ua2 ON m.player_a2_id = ua2.id
+                LEFT JOIN users ub1 ON m.player_b1_id = ub1.id
+                LEFT JOIN users ub2 ON m.player_b2_id = ub2.id
+                ORDER BY m.date_time
+            """))
         matches = []
         for row in result.mappings():
             m = dict(row)
             if isinstance(m.get("sets"), str):
                 m["sets"] = json.loads(m["sets"])
+            m.setdefault("roundId", None)
+            m.setdefault("businessId", None)
+            m.setdefault("visibility", "PRIVATE")
+            m.setdefault("currentSetIndex", 0)
+            m.setdefault("winnerPairId", None)
+            m.setdefault("winnerTeam", None)
+            m.setdefault("startTimeMs", None)
+            m.setdefault("elapsedTimeSec", 0)
+            m.setdefault("goldenPoint", 0)
+            m.setdefault("setsToWin", 2)
+            m.setdefault("roundName", None)
+            m.setdefault("deletedAt", None)
+            m.setdefault("playerA1Name", m.get("playerA1Name") or "Jugador 1")
+            m.setdefault("playerA2Name", m.get("playerA2Name") or "Jugador 2")
+            m.setdefault("playerB1Name", m.get("playerB1Name") or "Jugador 3")
+            m.setdefault("playerB2Name", m.get("playerB2Name") or "Jugador 4")
+            m.setdefault("playerA1Avatar", m.get("playerA1Avatar") or "")
+            m.setdefault("playerA2Avatar", m.get("playerA2Avatar") or "")
+            m.setdefault("playerB1Avatar", m.get("playerB1Avatar") or "")
+            m.setdefault("playerB2Avatar", m.get("playerB2Avatar") or "")
+            m.setdefault("pairAName", m.get("pairAName") or "Pareja A")
+            m.setdefault("pairBName", m.get("pairBName") or "Pareja B")
+            m.setdefault("courtName", m.get("courtName") or "Pista por definir")
             m["current_game"] = {}
             matches.append(m)
         return matches
