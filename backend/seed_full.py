@@ -115,9 +115,19 @@ def main():
         # Seed user_roles (from roles table + auth_users)
         result = conn.execute(text("SELECT id, name FROM roles"))
         role_map = {row["name"]: row["id"] for row in result.mappings()}
+        role_mapping = {
+            "ADMIN": "SUPER_ADMIN",
+            "SUPER_ADMIN": "SUPER_ADMIN",
+            "BUSINESS_ADMIN": "BUSINESS_ADMIN",
+            "BUSINESS_MANAGER": "BUSINESS_MANAGER",
+            "MANAGER": "BUSINESS_MANAGER",
+            "USER": "USER",
+            "PLAYER": "USER",
+        }
         for user in users:
-            role_name = user.get("role", "USER")
-            role_id = role_map.get(role_name, role_map.get("USER"))
+            raw_role = user.get("role", "USER")
+            mapped_role = role_mapping.get(raw_role, "USER")
+            role_id = role_map.get(mapped_role, role_map.get("USER"))
             if role_id:
                 try:
                     conn.execute(text("""

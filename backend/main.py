@@ -264,6 +264,14 @@ def login(body: dict = Body(...)):
                 SELECT r.name FROM user_roles ur
                 JOIN roles r ON ur.role_id = r.id
                 WHERE ur.user_id = :uid
+                ORDER BY CASE r.name
+                    WHEN 'SUPER_ADMIN' THEN 1
+                    WHEN 'BUSINESS_ADMIN' THEN 2
+                    WHEN 'BUSINESS_MANAGER' THEN 3
+                    WHEN 'ADMIN' THEN 4
+                    WHEN 'USER' THEN 5
+                    ELSE 6
+                END
                 LIMIT 1
             """), {"uid": user_id}).mappings().first()
             role = role_row["name"] if role_row else "PLAYER"
@@ -317,8 +325,10 @@ def get_current_user(authorization: Optional[str] = Header(None)):
     return payload
 
 
+ADMIN_ROLES = {"ADMIN", "SUPER_ADMIN", "BUSINESS_ADMIN", "BUSINESS_MANAGER"}
+
 def require_admin(payload: dict = Depends(get_current_user)):
-    if payload.get("role") != "ADMIN":
+    if payload.get("role") not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Admin access required")
     return payload
 

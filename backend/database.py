@@ -732,6 +732,33 @@ def seed_data(conn, data):
         except Exception:
             pass
 
+    players = data.get("players", [])
+    role_mapping = {
+        "ADMIN": "SUPER_ADMIN",
+        "SUPER_ADMIN": "SUPER_ADMIN",
+        "BUSINESS_ADMIN": "BUSINESS_ADMIN",
+        "BUSINESS_MANAGER": "BUSINESS_MANAGER",
+        "MANAGER": "BUSINESS_MANAGER",
+        "USER": "USER",
+        "PLAYER": "USER",
+    }
+    role_rows = conn.execute(text("SELECT id, name FROM roles")).mappings().all()
+    role_map = {row["name"]: row["id"] for row in role_rows}
+    for user in players:
+        raw_role = user.get("role", "USER")
+        mapped_role = role_mapping.get(raw_role, "USER")
+        role_id = role_map.get(mapped_role)
+        if not role_id:
+            continue
+        try:
+            conn.execute(text("""
+                INSERT INTO user_roles (user_id, role_id)
+                VALUES (:user_id, :role_id)
+                ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+            """), {"user_id": user["id"], "role_id": role_id})
+        except Exception:
+            pass
+
 
 def migrate_schema(conn):
     try:
