@@ -107,7 +107,7 @@ def get_pair(pair_id: str):
 
 
 @pairs_router.post("")
-def create_pair(pair: dict, payload: dict = Depends(require_admin)):
+def create_pair(pair: dict, payload: dict = Depends(get_current_user)):
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO pairs (id, name, player1_id, player2_id, created_by, status,
@@ -125,8 +125,8 @@ def create_pair(pair: dict, payload: dict = Depends(require_admin)):
             "player2_id": pair.get("player2Id") or pair.get("player2_id"),
             "created_by": pair.get("createdBy") or pair.get("created_by") or pair.get("player1Id") or pair.get("player1_id"),
             "status": pair.get("status", "ACTIVE"),
-            "tournaments_disputed": pair.get("tournamentsDisputed") or pair.get("tournaments_disputed"),
-            "titles_won": pair.get("titlesWon") or pair.get("titles_won"),
+            "tournaments_disputed": pair.get("tournamentsDisputed", pair.get("tournaments_disputed", 0)),
+            "titles_won": pair.get("titlesWon", pair.get("titles_won", 0)),
         })
     return pair
 

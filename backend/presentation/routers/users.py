@@ -92,13 +92,23 @@ def _build_user_response(user: dict, role_name: Optional[str] = None) -> dict:
 @users_router.get("")
 def get_users():
     with engine.connect() as conn:
-        result = conn.execute(text("""
-            SELECT u.*, ua.email as auth_email,
-                   (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
-            FROM users u
-            LEFT JOIN users_auth ua ON u.id = ua.user_id
-            ORDER BY u.points DESC
-        """))
+        try:
+            result = conn.execute(text("""
+                SELECT u.*, ua.email as auth_email,
+                       (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+                FROM users u
+                LEFT JOIN users_auth ua ON u.id = ua.user_id
+                WHERE u.deleted_at IS NULL
+                ORDER BY u.points DESC
+            """))
+        except Exception:
+            result = conn.execute(text("""
+                SELECT u.*, ua.email as auth_email,
+                       (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+                FROM users u
+                LEFT JOIN users_auth ua ON u.id = ua.user_id
+                ORDER BY u.points DESC
+            """))
         users = []
         for row in result.mappings():
             user = dict(row)
@@ -136,13 +146,22 @@ def get_current_user_me(authorization: Optional[str] = Header(None)):
 @users_router.get("/{user_id}")
 def get_user(user_id: str):
     with engine.connect() as conn:
-        result = conn.execute(text("""
-            SELECT u.*, ua.email as auth_email,
-                   (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
-            FROM users u
-            LEFT JOIN users_auth ua ON u.id = ua.user_id
-            WHERE u.id = :id
-        """), {"id": user_id})
+        try:
+            result = conn.execute(text("""
+                SELECT u.*, ua.email as auth_email,
+                       (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+                FROM users u
+                LEFT JOIN users_auth ua ON u.id = ua.user_id
+                WHERE u.id = :id AND u.deleted_at IS NULL
+            """), {"id": user_id})
+        except Exception:
+            result = conn.execute(text("""
+                SELECT u.*, ua.email as auth_email,
+                       (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+                FROM users u
+                LEFT JOIN users_auth ua ON u.id = ua.user_id
+                WHERE u.id = :id
+            """), {"id": user_id})
         row = result.mappings().first()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
@@ -211,6 +230,24 @@ def delete_user(user_id: str, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
         try:
             conn.execute(text("UPDATE users SET deleted_at = NOW() WHERE id = :id"), {"id": user_id})
+            return {"message": "User soft-deleted"}
         except Exception:
+            pass
+        
+        try:
+            conn.execute(text("DELETE FROM user_roles WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM profiles WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM privacy_settings WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM business_users WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM user_points WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM notifications WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM audit_logs WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM tournament_players WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM match_players WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("UPDATE pairs SET player1_id = NULL WHERE player1_id = :id"), {"id": user_id})
+            conn.execute(text("UPDATE pairs SET player2_id = NULL WHERE player2_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM users_auth WHERE user_id = :id"), {"id": user_id})
             conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
-    return {"message": "User deleted"}
+            return {"message": "User deleted"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete user: {e}")
