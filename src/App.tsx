@@ -15,16 +15,6 @@ import {
   NotificationItem,
   MatchEvent,
 } from './types';
-import {
-  INITIAL_USER,
-  INITIAL_PLAYERS,
-  INITIAL_PAIRS,
-  INITIAL_TOURNAMENTS,
-  INITIAL_MATCHES,
-  INITIAL_COURTS,
-  INITIAL_AUDIT_LOGS,
-  INITIAL_NOTIFICATIONS,
-} from './data/mockData';
 import { HeaderBar } from './components/HeaderBar';
 import { BottomNav, ActiveTab } from './components/BottomNav';
 import { LiveMatchCard } from './components/LiveMatchCard';
@@ -55,17 +45,16 @@ export default function App() {
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [loading, setLoading] = useState<boolean>(true);
-  const [usingFallback, setUsingFallback] = useState<boolean>(false);
   const [session, setSession] = useState<{ user: User; token: string } | null>(null);
 
-  const [user, setUser] = useState<User>(INITIAL_USER);
-  const [players, setPlayers] = useState<User[]>(INITIAL_PLAYERS);
-  const [pairs, setPairs] = useState<Pair[]>(INITIAL_PAIRS);
-  const [tournaments, setTournaments] = useState<Tournament[]>(INITIAL_TOURNAMENTS);
-  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
-  const [courts, setCourts] = useState<Court[]>(INITIAL_COURTS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [user, setUser] = useState<User | null>(null);
+  const [players, setPlayers] = useState<User[]>([]);
+  const [pairs, setPairs] = useState<Pair[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Overlay Modals & Drawers
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -132,9 +121,6 @@ export default function App() {
         }
 
         if (!backendAvailable) {
-          if (!cancelled) {
-            setUsingFallback(true);
-          }
           return;
         }
 
@@ -247,9 +233,6 @@ export default function App() {
         if (notifications) setNotifications(notifications as NotificationItem[]);
       } catch (error) {
         console.warn('[App] Backend unavailable, using local fallback data.', error);
-        if (!cancelled) {
-          setUsingFallback(true);
-        }
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -296,7 +279,7 @@ export default function App() {
     sessionStorage.removeItem('padel_pro_token');
     setAuthToken(null);
     setSession(null);
-    setUser(INITIAL_USER);
+    setUser(null);
     setRole('ADMIN');
   };
 
@@ -749,14 +732,6 @@ export default function App() {
 
           {/* Main View Router Content Area */}
           <main className="pt-[68px] pb-[88px] min-h-[calc(100vh-150px)]">
-            {usingFallback && (
-              <div className="px-4 pt-3">
-                <div className="bg-[#282a2e] border border-[#c3f400]/40 text-[#c3f400] text-[11px] font-mono-stats p-2.5 rounded-lg">
-                  Backend no disponible. Mostrando datos locales.
-                </div>
-              </div>
-            )}
-
             <>
               {/* HOME DASHBOARD VIEW */}
               {activeTab === 'home' && (
