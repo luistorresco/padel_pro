@@ -32,7 +32,6 @@ async function handleResponse(response: Response) {
 
 export const api = {
   getUsers: () => fetch(`${API_BASE_NORMALIZED}/api/users`, { headers: mergeHeaders() }).then(handleResponse),
-  getUser: (userId: string) => fetch(`${API_BASE_NORMALIZED}/api/users/${userId}`, { headers: mergeHeaders() }).then(handleResponse),
   getCurrentUser: () => fetch(`${API_BASE_NORMALIZED}/api/users/me`, { headers: mergeHeaders() }).then(handleResponse),
   createUser: (user: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/users`, {
     method: 'POST',
@@ -60,11 +59,8 @@ export const api = {
     method: 'DELETE',
     headers: mergeHeaders(),
   }).then(handleResponse),
-  getPairUsers: (pairId: string) => fetch(`${API_BASE_NORMALIZED}/api/pairs/${pairId}`, { headers: mergeHeaders() }).then(handleResponse),
 
   getTournaments: () => fetch(`${API_BASE_NORMALIZED}/api/tournaments`, { headers: mergeHeaders() }).then(handleResponse),
-  getTournament: (tournamentId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}`, { headers: mergeHeaders() }).then(handleResponse),
-  getTournamentFull: (tournamentId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/full`, { headers: mergeHeaders() }).then(handleResponse),
   createTournament: (tournament: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/tournaments`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
@@ -79,11 +75,6 @@ export const api = {
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(tournament),
   }).then(handleResponse),
-  registerPair: (tournamentId: string, pairId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/register`, {
-    method: 'POST',
-    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ pair_id: pairId }),
-  }).then(handleResponse),
   registerPairForTournament: (tournamentId: string, pairId: string, courtId: string, dateTime: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/register`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
@@ -96,16 +87,9 @@ export const api = {
   }).then(handleResponse),
 
   getCourts: () => fetch(`${API_BASE_NORMALIZED}/api/courts`, { headers: mergeHeaders() }).then(handleResponse),
-  getCourt: (courtId: string) => fetch(`${API_BASE_NORMALIZED}/api/courts/${courtId}`, { headers: mergeHeaders() }).then(handleResponse),
-  updateCourt: (courtId: string, court: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/courts/${courtId}`, {
-    method: 'PUT',
-    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(court),
-  }).then(handleResponse),
 
   getMatches: () => fetch(`${API_BASE_NORMALIZED}/api/matches`, { headers: mergeHeaders() }).then(handleResponse),
   getMatch: (matchId: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}`, { headers: mergeHeaders() }).then(handleResponse),
-  getMatchPlayers: (matchId: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}/players`, { headers: mergeHeaders() }).then(handleResponse),
   createMatch: (match: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/matches`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
@@ -137,38 +121,14 @@ export const api = {
   }).then(handleResponse),
 
   getAuditLogs: () => fetch(`${API_BASE_NORMALIZED}/api/audit-logs`, { headers: mergeHeaders() }).then(handleResponse),
-  createAuditLog: (log: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/audit-logs`, {
-    method: 'POST',
-    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(log),
-  }).then(handleResponse),
 
   getNotifications: () => fetch(`${API_BASE_NORMALIZED}/api/notifications`, { headers: mergeHeaders() }).then(handleResponse),
-  createNotification: (notification: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/notifications`, {
-    method: 'POST',
-    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(notification),
-  }).then(handleResponse),
-
-  getStats: () => fetch(`${API_BASE_NORMALIZED}/api/stats`, { headers: mergeHeaders() }).then(handleResponse),
 
   health: () => fetch(`${API_BASE_NORMALIZED}/api/health`).then(handleResponse),
 
   adminMigrate: () => fetch(`${API_BASE_NORMALIZED}/api/admin/migrate`, {
     method: 'POST',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
-  }).then(handleResponse),
-
-  login: (email: string, password: string) => fetch(`${API_BASE_NORMALIZED}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  }).then(handleResponse),
-
-  register: (data: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
   }).then(handleResponse),
 
   authMe: (token: string) => fetch(`${API_BASE_NORMALIZED}/api/auth/me`, {
