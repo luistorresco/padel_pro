@@ -209,5 +209,8 @@ def update_user(user_id: str, user: dict, payload: dict = Depends(require_admin)
 @users_router.delete("/{user_id}")
 def delete_user(user_id: str, payload: dict = Depends(require_admin)):
     with engine.begin() as conn:
-        conn.execute(text("UPDATE users SET deleted_at = NOW() WHERE id = :id"), {"id": user_id})
+        try:
+            conn.execute(text("UPDATE users SET deleted_at = NOW() WHERE id = :id"), {"id": user_id})
+        except Exception:
+            conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
     return {"message": "User deleted"}

@@ -38,7 +38,10 @@ def _build_tournament_response(t: dict) -> dict:
 @tournaments_router.get("")
 def get_tournaments():
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM tournaments WHERE deleted_at IS NULL ORDER BY start_date"))
+        try:
+            result = conn.execute(text("SELECT * FROM tournaments WHERE deleted_at IS NULL ORDER BY start_date"))
+        except Exception:
+            result = conn.execute(text("SELECT * FROM tournaments ORDER BY start_date"))
         tournaments = []
         for row in result.mappings():
             t = dict(row)
@@ -126,7 +129,7 @@ def get_tournament_full(tournament_id: str):
             LEFT JOIN users ua2 ON pa.player2_id = ua2.id
             LEFT JOIN users ub1 ON pb.player1_id = ub1.id
             LEFT JOIN users ub2 ON pb.player2_id = ub2.id
-            WHERE m.tournament_id = :tid AND m.deleted_at IS NULL
+            WHERE m.tournament_id = :tid
             ORDER BY m.date_time
         """), {"tid": tournament_id}).mappings().all()
 

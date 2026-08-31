@@ -1,6 +1,6 @@
 """Admin router."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Body
 from sqlalchemy import text
 
 from infrastructure.database import engine
@@ -10,7 +10,8 @@ admin_router = APIRouter()
 
 
 @admin_router.post("/migrate")
-def admin_migrate(payload: dict = Depends(require_admin)):
+@admin_router.get("/migrate")
+def admin_migrate(request: Request, payload: dict = Depends(require_admin), body: dict | None = None):
     from infrastructure.migrations import run_migrations
     with engine.begin() as conn:
         run_migrations(conn)

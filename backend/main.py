@@ -48,6 +48,16 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok", "service": "padel-pro-backend", "version": "2.0.0"}
 
+    @app.on_event("startup")
+    def on_startup():
+        try:
+            with engine.begin() as conn:
+                from infrastructure.migrations import run_migrations
+                run_migrations(conn)
+            print("[db] Migrations applied on startup.")
+        except Exception as e:
+            print(f"[db] Startup migration warning: {e}")
+
     return app
 
 

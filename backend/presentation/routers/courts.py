@@ -13,7 +13,10 @@ courts_router = APIRouter()
 @courts_router.get("")
 def get_courts():
     with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM courts ORDER BY created_at"))
+        try:
+            result = conn.execute(text("SELECT * FROM courts ORDER BY created_at"))
+        except Exception:
+            result = conn.execute(text("SELECT * FROM courts"))
         return [dict(row) for row in result.mappings()]
 
 
