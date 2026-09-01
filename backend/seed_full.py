@@ -152,9 +152,9 @@ def main():
                 except Exception as e:
                     print(f"[seed_full] User role skip {user['id']}: {e}")
 
-        if not admin_assigned and users:
+        if not admin_assigned:
             super_admin_role_id = role_map.get("SUPER_ADMIN")
-            if super_admin_role_id:
+            if super_admin_role_id and users:
                 try:
                     conn.execute(text("""
                         INSERT INTO user_roles (user_id, role_id)
@@ -164,6 +164,46 @@ def main():
                     print(f"[seed_full] Assigned SUPER_ADMIN to {users[0]['id']}")
                 except Exception as e:
                     print(f"[seed_full] Super admin skip: {e}")
+
+        # Ensure at least one dedicated admin user exists with SUPER_ADMIN role
+        admin_email = "admin@padelpro.app"
+        admin_name = "Admin User"
+        existing_admin = conn.execute(text("""
+            SELECT ua.user_id FROM users_auth ua
+            JOIN user_roles ur ON ua.user_id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            WHERE r.name = 'SUPER_ADMIN'
+            LIMIT 1
+        """)).mappings().first()
+        if not existing_admin:
+            admin_id = "usr_admin_super"
+            try:
+                conn.execute(text("""
+                    INSERT INTO users (id, name, surname, username, email, account_type, status, points)
+                    VALUES (:id, :name, :surname, :username, :email, 'USER', 'ACTIVE', 0)
+                    ON DUPLICATE KEY UPDATE name = VALUES(name)
+                """), {
+                    "id": admin_id,
+                    "name": admin_name,
+                    "surname": "System",
+                    "username": "admin",
+                    "email": admin_email,
+                })
+                hashed = __import__('domain.services.auth_service', fromlist=['AuthService']).AuthService(secret_key="padel-pro-secret-key-change-in-production").hash_password("admin123")
+                conn.execute(text("""
+                    INSERT INTO users_auth (user_id, email, hashed_password)
+                    VALUES (:user_id, :email, :hashed_password)
+                    ON DUPLICATE KEY UPDATE email = VALUES(email), hashed_password = VALUES(hashed_password)
+                """), {"user_id": admin_id, "email": admin_email, "hashed_password": hashed})
+                if super_admin_role_id:
+                    conn.execute(text("""
+                        INSERT INTO user_roles (user_id, role_id)
+                        VALUES (:user_id, :role_id)
+                        ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+                    """), {"user_id": admin_id, "role_id": super_admin_role_id})
+                print(f"[seed_full] Created dedicated admin user: {admin_email} / admin123")
+            except Exception as e:
+                print(f"[seed_full] Admin user creation skip: {e}")
 
         # Seed business_users
         for user in users:

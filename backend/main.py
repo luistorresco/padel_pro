@@ -69,6 +69,21 @@ def create_app() -> FastAPI:
                         print("[db] Database already contains data.")
                 except Exception as seed_err:
                     print(f"[db] Seed check warning: {seed_err}")
+
+                try:
+                    admin_check = conn.execute(__import__('sqlalchemy').text("""
+                        SELECT ua.user_id FROM users_auth ua
+                        JOIN user_roles ur ON ua.user_id = ur.user_id
+                        JOIN roles r ON ur.role_id = r.id
+                        WHERE r.name = 'SUPER_ADMIN'
+                        LIMIT 1
+                    """)).mappings().first()
+                    if not admin_check:
+                        from seed_full import main as seed_main
+                        seed_main()
+                        print("[db] Ensured admin user exists on startup.")
+                except Exception as admin_err:
+                    print(f"[db] Admin check warning: {admin_err}")
             print("[db] Migrations applied on startup.")
         except Exception as e:
             print(f"[db] Startup migration warning: {e}")
