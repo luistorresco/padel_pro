@@ -135,9 +135,12 @@ def main():
             "USER": "USER",
             "PLAYER": "USER",
         }
+        admin_assigned = False
         for user in users:
             raw_role = user.get("role", "USER")
             mapped_role = role_mapping.get(raw_role, "USER")
+            if mapped_role in {"SUPER_ADMIN", "BUSINESS_ADMIN", "BUSINESS_MANAGER"}:
+                admin_assigned = True
             role_id = role_map.get(mapped_role, role_map.get("USER"))
             if role_id:
                 try:
@@ -148,6 +151,19 @@ def main():
                     """), {"user_id": user["id"], "role_id": role_id})
                 except Exception as e:
                     print(f"[seed_full] User role skip {user['id']}: {e}")
+
+        if not admin_assigned and users:
+            super_admin_role_id = role_map.get("SUPER_ADMIN")
+            if super_admin_role_id:
+                try:
+                    conn.execute(text("""
+                        INSERT INTO user_roles (user_id, role_id)
+                        VALUES (:user_id, :role_id)
+                        ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+                    """), {"user_id": users[0]["id"], "role_id": super_admin_role_id})
+                    print(f"[seed_full] Assigned SUPER_ADMIN to {users[0]['id']}")
+                except Exception as e:
+                    print(f"[seed_full] Super admin skip: {e}")
 
         # Seed business_users
         for user in users:
