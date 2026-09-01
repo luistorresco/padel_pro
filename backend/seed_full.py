@@ -28,6 +28,10 @@ if not DATABASE_URL:
 
 engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 
+from domain.services.auth_service import AuthService
+
+auth_service = AuthService(secret_key="padel-pro-secret-key-change-in-production")
+
 
 def _map_match_status(value):
     if not value:
@@ -125,6 +129,22 @@ def main():
             except Exception as e:
                 print(f"[seed_full] User skip {user['id']}: {e}")
 
+        # Seed users_auth for mock users
+        for user in users:
+            try:
+                hashed = auth_service.hash_password("password123")
+                conn.execute(text("""
+                    INSERT INTO users_auth (user_id, email, hashed_password)
+                    VALUES (:user_id, :email, :hashed_password)
+                    ON DUPLICATE KEY UPDATE email = VALUES(email), hashed_password = VALUES(hashed_password)
+                """), {
+                    "user_id": user["id"],
+                    "email": user.get("email") or f"{user['id']}@padelpro.app",
+                    "hashed_password": hashed,
+                })
+            except Exception as e:
+                print(f"[seed_full] Auth skip {user['id']}: {e}")
+
         # Seed profiles
         for user in users:
             try:
@@ -221,7 +241,7 @@ def main():
                     "username": "admin",
                     "email": admin_email,
                 })
-                hashed = __import__('domain.services.auth_service', fromlist=['AuthService']).AuthService(secret_key="padel-pro-secret-key-change-in-production").hash_password("admin123")
+                hashed = auth_service.hash_password("admin123")
                 conn.execute(text("""
                     INSERT INTO users_auth (user_id, email, hashed_password)
                     VALUES (:user_id, :email, :hashed_password)

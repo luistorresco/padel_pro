@@ -1,6 +1,9 @@
 """Run database migrations."""
 
 from sqlalchemy import text
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def run_migrations(conn):
@@ -20,30 +23,30 @@ def run_migrations(conn):
         if "role" in cols:
             try:
                 conn.execute(text("ALTER TABLE users_auth DROP COLUMN role"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Migration warning (users_auth role): {e}")
         if "last_login" not in cols:
             try:
                 conn.execute(text("ALTER TABLE users_auth ADD COLUMN last_login DATETIME NULL"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Migration warning (users_auth last_login): {e}")
         if "email_verified_at" not in cols:
             try:
                 conn.execute(text("ALTER TABLE users_auth ADD COLUMN email_verified_at DATETIME NULL"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Migration warning (users_auth email_verified_at): {e}")
         if "created_at" not in cols:
             try:
                 conn.execute(text("ALTER TABLE users_auth ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Migration warning (users_auth created_at): {e}")
         if "updated_at" not in cols:
             try:
                 conn.execute(text("ALTER TABLE users_auth ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.warning(f"Migration warning (users_auth updated_at): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (users_auth): {e}")
 
     try:
         user_cols = [
@@ -70,10 +73,10 @@ def run_migrations(conn):
             if col not in user_cols:
                 try:
                     conn.execute(text(stmt))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.warning(f"Migration warning (users {col}): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (users): {e}")
 
     try:
         match_cols = [
@@ -107,10 +110,10 @@ def run_migrations(conn):
             if col not in match_cols:
                 try:
                     conn.execute(text(stmt))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.warning(f"Migration warning (matches {col}): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (matches): {e}")
 
     try:
         pair_cols = [
@@ -132,10 +135,10 @@ def run_migrations(conn):
             if col not in pair_cols:
                 try:
                     conn.execute(text(stmt))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.warning(f"Migration warning (pairs {col}): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (pairs): {e}")
 
     try:
         court_cols = [
@@ -156,10 +159,10 @@ def run_migrations(conn):
             if col not in court_cols:
                 try:
                     conn.execute(text(stmt))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.warning(f"Migration warning (courts {col}): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (courts): {e}")
 
     try:
         tournament_cols = [
@@ -171,6 +174,7 @@ def run_migrations(conn):
         ]
         tournament_alters = {
             "business_id": "ALTER TABLE tournaments ADD COLUMN business_id VARCHAR(255) NULL",
+            "created_by": "ALTER TABLE tournaments ADD COLUMN created_by VARCHAR(255) NOT NULL DEFAULT ''",
             "logo": "ALTER TABLE tournaments ADD COLUMN logo TEXT NULL",
             "description": "ALTER TABLE tournaments ADD COLUMN description TEXT NULL",
             "category": "ALTER TABLE tournaments ADD COLUMN category VARCHAR(100) NULL",
@@ -188,10 +192,10 @@ def run_migrations(conn):
             if col not in tournament_cols:
                 try:
                     conn.execute(text(stmt))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.warning(f"Migration warning (tournaments {col}): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (tournaments): {e}")
 
     try:
         notif_cols = [
@@ -211,7 +215,7 @@ def run_migrations(conn):
             if col not in notif_cols:
                 try:
                     conn.execute(text(stmt))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.warning(f"Migration warning (notifications {col}): {e}")
+    except Exception as e:
+        logger.warning(f"Migration warning (notifications): {e}")

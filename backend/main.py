@@ -90,7 +90,8 @@ def create_app() -> FastAPI:
                                 admin_id = "usr_admin_super"
                                 admin_email = "admin@padelpro.app"
                                 admin_name = "Admin User"
-                                hashed = __import__('domain.services.auth_service', fromlist=['AuthService']).AuthService(secret_key="padel-pro-secret-key-change-in-production").hash_password("admin123")
+                                from domain.services.auth_service import AuthService
+                                hashed = AuthService(secret_key="padel-pro-secret-key-change-in-production").hash_password("admin123")
                                 conn.execute(text("""
                                     INSERT INTO users (id, name, surname, username, email, account_type, status, points)
                                     VALUES (:id, :name, :surname, :username, :email, 'USER', 'ACTIVE', 0)
