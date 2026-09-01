@@ -50,4 +50,5 @@ class SQLAlchemyNotificationRepository(INotificationRepository):
             read_status=bool(row.get("read_status", 0)),
             notification_type=row.get("type"),
             link_id=row.get("link_id"),
+            created_at=row.get("created_at"),
         )

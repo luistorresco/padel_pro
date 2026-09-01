@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
+from infrastructure.database import engine
 from presentation.routers import (
     auth_router,
     users_router,

@@ -1,6 +1,6 @@
 """SQLAlchemy tournament repository implementation."""
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sqlalchemy import text
 from domain.entities.tournament import Tournament
 from domain.repositories.tournament_repository import ITournamentRepository
@@ -111,6 +111,22 @@ class SQLAlchemyTournamentRepository(ITournamentRepository):
                 "matches": [dict(m) for m in matches],
             }
 
+    def register_pair(self, tournament_id: str, pair_id: str, status: str = "REGISTERED") -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO tournament_pairs (tournament_id, pair_id, status)
+                VALUES (:tid, :pid, :status)
+                ON DUPLICATE KEY UPDATE status = VALUES(status)
+            """), {"tid": tournament_id, "pid": pair_id, "status": status})
+
+    def register_player(self, tournament_id: str, user_id: str, status: str = "REGISTERED") -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO tournament_players (tournament_id, user_id, status)
+                VALUES (:tid, :uid, :status)
+                ON DUPLICATE KEY UPDATE status = VALUES(status)
+            """), {"tid": tournament_id, "uid": user_id, "status": status})
+
     def _to_entity(self, row: dict) -> Tournament:
         import json
         rules = row.get("rules")
@@ -137,4 +153,6 @@ class SQLAlchemyTournamentRepository(ITournamentRepository):
             visibility=row.get("visibility", "PRIVATE"),
             rules=rules or {},
             deleted_at=row.get("deleted_at"),
+            created_at=row.get("created_at"),
+            updated_at=row.get("updated_at"),
         )

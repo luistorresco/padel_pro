@@ -1,6 +1,6 @@
 """SQLAlchemy match repository implementation."""
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sqlalchemy import text
 from domain.entities.match import Match
 from domain.repositories.match_repository import IMatchRepository
@@ -90,6 +90,160 @@ class SQLAlchemyMatchRepository(IMatchRepository):
                 WHERE mp.match_id = :mid
             """), {"mid": match_id}).mappings().all()
             return [dict(r) for r in rows]
+
+    def update_court(self, match_id: str, court_id: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE matches SET court_id = :court_id WHERE id = :id
+            """), {"id": match_id, "court_id": court_id})
+
+    def finish(self, match_id: str, winner_pair_id: str, winner_team: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE matches SET status = 'FINISHED', winner_pair_id = :winner_id, winner_team = :winner_team
+                WHERE id = :id
+            """), {"id": match_id, "winner_id": winner_pair_id, "winner_team": winner_team})
+
+    def find_all_detailed(self) -> List[Dict]:
+        with self.engine.connect() as conn:
+            try:
+                rows = conn.execute(text("""
+                    SELECT m.id,
+                        m.tournament_id AS tournamentId,
+                        m.round_id AS roundId,
+                        m.business_id AS businessId,
+                        m.court_id AS courtId,
+                        m.created_by AS createdBy,
+                        m.pair_a_id AS pairAId,
+                        m.pair_b_id AS pairBId,
+                        m.date_time AS dateTime,
+                        m.status,
+                        m.visibility,
+                        m.sets,
+                        m.current_set_index AS currentSetIndex,
+                        m.winner_pair_id AS winnerPairId,
+                        m.winner_team AS winnerTeam,
+                        m.start_time_ms AS startTimeMs,
+                        m.elapsed_time_sec AS elapsedTimeSec,
+                        m.golden_point AS goldenPoint,
+                        m.sets_to_win AS setsToWin,
+                        m.round_name AS roundName,
+                        m.created_at AS createdAt,
+                        m.updated_at AS updatedAt,
+                        m.deleted_at AS deletedAt,
+                        t.name AS tournamentName,
+                        c.name AS courtName,
+                        pa.name AS pairAName,
+                        pb.name AS pairBName,
+                        ua1.name AS playerA1Name,
+                        ua2.name AS playerA2Name,
+                        ub1.name AS playerB1Name,
+                        ub2.name AS playerB2Name,
+                        ua1.avatar AS playerA1Avatar,
+                        ua2.avatar AS playerA2Avatar,
+                        ub1.avatar AS playerB1Avatar,
+                        ub2.avatar AS playerB2Avatar
+                    FROM matches m
+                    LEFT JOIN tournaments t ON m.tournament_id = t.id
+                    LEFT JOIN courts c ON m.court_id = c.id
+                    LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+                    LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+                    LEFT JOIN users ua1 ON pa.player1_id = ua1.id
+                    LEFT JOIN users ua2 ON pa.player2_id = ua2.id
+                    LEFT JOIN users ub1 ON pb.player1_id = ub1.id
+                    LEFT JOIN users ub2 ON pb.player2_id = ub2.id
+                    ORDER BY m.date_time
+                """)).mappings().all()
+            except Exception:
+                rows = conn.execute(text("""
+                    SELECT m.id,
+                        m.tournament_id AS tournamentId,
+                        m.court_id AS courtId,
+                        m.created_by AS createdBy,
+                        m.pair_a_id AS pairAId,
+                        m.pair_b_id AS pairBId,
+                        m.date_time AS dateTime,
+                        m.status,
+                        m.sets,
+                        m.created_at AS createdAt,
+                        m.updated_at AS updatedAt,
+                        t.name AS tournamentName,
+                        c.name AS courtName,
+                        pa.name AS pairAName,
+                        pb.name AS pairBName,
+                        ua1.name AS playerA1Name,
+                        ua2.name AS playerA2Name,
+                        ub1.name AS playerB1Name,
+                        ub2.name AS playerB2Name,
+                        ua1.avatar AS playerA1Avatar,
+                        ua2.avatar AS playerA2Avatar,
+                        ub1.avatar AS playerB1Avatar,
+                        ub2.avatar AS playerB2Avatar
+                    FROM matches m
+                    LEFT JOIN tournaments t ON m.tournament_id = t.id
+                    LEFT JOIN courts c ON m.court_id = c.id
+                    LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+                    LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+                    LEFT JOIN users ua1 ON pa.player1_id = ua1.id
+                    LEFT JOIN users ua2 ON pa.player2_id = ua2.id
+                    LEFT JOIN users ub1 ON pb.player1_id = ub1.id
+                    LEFT JOIN users ub2 ON pb.player2_id = ub2.id
+                    ORDER BY m.date_time
+                """)).mappings().all()
+            return [dict(r) for r in rows]
+
+    def find_by_id_detailed(self, match_id: str) -> Optional[Dict]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT m.id,
+                    m.tournament_id AS tournamentId,
+                    m.round_id AS roundId,
+                    m.business_id AS businessId,
+                    m.court_id AS courtId,
+                    m.created_by AS createdBy,
+                    m.pair_a_id AS pairAId,
+                    m.pair_b_id AS pairBId,
+                    m.date_time AS dateTime,
+                    m.status,
+                    m.visibility,
+                    m.sets,
+                    m.current_set_index AS currentSetIndex,
+                    m.winner_pair_id AS winnerPairId,
+                    m.winner_team AS winnerTeam,
+                    m.start_time_ms AS startTimeMs,
+                    m.elapsed_time_sec AS elapsedTimeSec,
+                    m.golden_point AS goldenPoint,
+                    m.sets_to_win AS setsToWin,
+                    m.round_name AS roundName,
+                    m.created_at AS createdAt,
+                    m.updated_at AS updatedAt,
+                    m.deleted_at AS deletedAt,
+                    t.name AS tournamentName,
+                    c.name AS courtName,
+                    pa.name AS pairAName,
+                    pb.name AS pairBName,
+                    ua1.name AS playerA1Name,
+                    ua2.name AS playerA2Name,
+                    ub1.name AS playerB1Name,
+                    ub2.name AS playerB2Name,
+                    ua1.avatar AS playerA1Avatar,
+                    ua2.avatar AS playerA2Avatar,
+                    ub1.avatar AS playerB1Avatar,
+                    ub2.avatar AS playerB2Avatar
+                FROM matches m
+                LEFT JOIN tournaments t ON m.tournament_id = t.id
+                LEFT JOIN courts c ON m.court_id = c.id
+                LEFT JOIN pairs pa ON m.pair_a_id = pa.id
+                LEFT JOIN pairs pb ON m.pair_b_id = pb.id
+                LEFT JOIN users ua1 ON pa.player1_id = ua1.id
+                LEFT JOIN users ua2 ON pa.player2_id = ua2.id
+                LEFT JOIN users ub1 ON pb.player1_id = ub1.id
+                LEFT JOIN users ub2 ON pb.player2_id = ub2.id
+                WHERE m.id = :id
+            """), {"id": match_id}).mappings().first()
+            if not row:
+                return None
+            return dict(row)
 
     def _to_entity(self, row: dict) -> Match:
         import json

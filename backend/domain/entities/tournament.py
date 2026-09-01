@@ -21,6 +21,8 @@ class Tournament:
         visibility: str = "PRIVATE",
         rules: dict | None = None,
         deleted_at: str | None = None,
+        created_at: str | None = None,
+        updated_at: str | None = None,
     ):
         self.id = tournament_id
         self.name = name
@@ -39,3 +41,5 @@ class Tournament:
         self.visibility = visibility
         self.rules = rules or {}
         self.deleted_at = deleted_at
+        self.created_at = created_at
+        self.updated_at = updated_at

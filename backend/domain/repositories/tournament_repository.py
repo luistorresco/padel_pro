@@ -1,7 +1,7 @@
 """Tournament repository port."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Dict
 from domain.entities.tournament import Tournament
 
 
@@ -24,4 +24,12 @@ class ITournamentRepository(ABC):
 
     @abstractmethod
     def find_full(self, tournament_id: str) -> Optional[dict]:
+        pass
+
+    @abstractmethod
+    def register_pair(self, tournament_id: str, pair_id: str, status: str = "REGISTERED") -> None:
+        pass
+
+    @abstractmethod
+    def register_player(self, tournament_id: str, user_id: str, status: str = "REGISTERED") -> None:
         pass

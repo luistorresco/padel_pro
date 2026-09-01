@@ -20,6 +20,8 @@ class User:
         invitation_code: str | None = None,
         converted_at: str | None = None,
         deleted_at: str | None = None,
+        created_at: str | None = None,
+        updated_at: str | None = None,
     ):
         self.id = user_id
         self.name = name
@@ -37,3 +39,5 @@ class User:
         self.invitation_code = invitation_code
         self.converted_at = converted_at
         self.deleted_at = deleted_at
+        self.created_at = created_at
+        self.updated_at = updated_at

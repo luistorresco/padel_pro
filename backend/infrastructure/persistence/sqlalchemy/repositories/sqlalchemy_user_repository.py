@@ -1,6 +1,6 @@
 """SQLAlchemy user repository implementation."""
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sqlalchemy import text
 from domain.entities.user import User
 from domain.repositories.user_repository import IUserRepository
@@ -39,6 +39,110 @@ class SQLAlchemyUserRepository(IUserRepository):
             if not row:
                 return None
             return self._to_entity(dict(row))
+
+    def find_auth_by_email(self, email: str) -> Optional[Dict]:
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT * FROM users_auth WHERE email = :email"),
+                {"email": email}
+            ).mappings().first()
+            if not row:
+                return None
+            return dict(row)
+
+    def find_role_by_user(self, user_id: str) -> Optional[str]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT r.name FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = :uid
+                ORDER BY CASE r.name
+                    WHEN 'SUPER_ADMIN' THEN 1
+                    WHEN 'BUSINESS_ADMIN' THEN 2
+                    WHEN 'BUSINESS_MANAGER' THEN 3
+                    WHEN 'ADMIN' THEN 4
+                    WHEN 'USER' THEN 5
+                    ELSE 6
+                END
+                LIMIT 1
+            """), {"uid": user_id}).mappings().first()
+            if row:
+                return row["name"]
+            return None
+
+    def update_last_login(self, user_id: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(
+                text("UPDATE users_auth SET last_login = :now WHERE user_id = :uid"),
+                {"now": __import__('datetime').datetime.utcnow(), "uid": user_id}
+            )
+
+    def find_privacy(self, user_id: str) -> Dict:
+        with self.engine.connect() as conn:
+            try:
+                row = conn.execute(text("""
+                    SELECT profile_visibility, points_visibility, games_visibility, tournaments_visibility
+                    FROM privacy_settings WHERE user_id = :uid
+                """), {"uid": user_id}).mappings().first()
+                if row:
+                    return dict(row)
+            except Exception:
+                pass
+            return {}
+
+    def create_auth(self, user_id: str, email: str, hashed_password: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO users_auth (user_id, email, hashed_password)
+                VALUES (:user_id, :email, :hashed_password)
+                ON DUPLICATE KEY UPDATE email = VALUES(email), hashed_password = VALUES(hashed_password)
+            """), {"user_id": user_id, "email": email, "hashed_password": hashed_password})
+
+    def assign_role(self, user_id: str, role_name: str) -> None:
+        with self.engine.begin() as conn:
+            role_id = conn.execute(
+                text("SELECT id FROM roles WHERE name = :name"),
+                {"name": role_name}
+            ).scalar()
+            if not role_id:
+                role_id = conn.execute(
+                    text("INSERT INTO roles (name) VALUES (:name)"),
+                    {"name": role_name}
+                ).lastrowid
+            conn.execute(text("""
+                INSERT INTO user_roles (user_id, role_id)
+                VALUES (:user_id, :role_id)
+                ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+            """), {"user_id": user_id, "role_id": role_id})
+
+    def hard_delete(self, user_id: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("DELETE FROM user_roles WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM profiles WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM privacy_settings WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM business_users WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM user_points WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM notifications WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM audit_logs WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM tournament_players WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM match_players WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("UPDATE pairs SET player1_id = NULL WHERE player1_id = :id"), {"id": user_id})
+            conn.execute(text("UPDATE pairs SET player2_id = NULL WHERE player2_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM users_auth WHERE user_id = :id"), {"id": user_id})
+            conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
+
+    def find_with_role(self, user_id: str) -> Optional[Dict]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT u.*, ua.email as auth_email,
+                       (SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = u.id LIMIT 1) as role_name
+                FROM users u
+                LEFT JOIN users_auth ua ON u.id = ua.user_id
+                WHERE u.id = :id
+            """), {"id": user_id}).mappings().first()
+            if not row:
+                return None
+            return dict(row)
 
     def save(self, user: User) -> User:
         with self.engine.begin() as conn:
@@ -93,4 +197,6 @@ class SQLAlchemyUserRepository(IUserRepository):
             invitation_code=row.get("invitation_code"),
             converted_at=row.get("converted_at"),
             deleted_at=row.get("deleted_at"),
+            created_at=row.get("created_at"),
+            updated_at=row.get("updated_at"),
         )

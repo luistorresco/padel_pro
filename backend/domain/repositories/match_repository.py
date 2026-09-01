@@ -1,7 +1,7 @@
 """Match repository port."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Dict
 from domain.entities.match import Match
 
 
@@ -28,4 +28,20 @@ class IMatchRepository(ABC):
 
     @abstractmethod
     def find_players(self, match_id: str) -> List[dict]:
+        pass
+
+    @abstractmethod
+    def update_court(self, match_id: str, court_id: str) -> None:
+        pass
+
+    @abstractmethod
+    def finish(self, match_id: str, winner_pair_id: str, winner_team: str) -> None:
+        pass
+
+    @abstractmethod
+    def find_all_detailed(self) -> List[Dict]:
+        pass
+
+    @abstractmethod
+    def find_by_id_detailed(self, match_id: str) -> Optional[Dict]:
         pass

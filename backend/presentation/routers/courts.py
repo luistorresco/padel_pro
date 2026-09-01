@@ -2,73 +2,60 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import Optional
-from sqlalchemy import text
 
-from infrastructure.database import engine
-from presentation.deps_module import require_admin
+from presentation.deps_module import (
+    list_courts_uc,
+    get_court_uc,
+    create_court_uc,
+    update_court_uc,
+    delete_court_uc,
+    require_admin,
+)
 
 courts_router = APIRouter()
 
 
 @courts_router.get("")
 def get_courts():
-    with engine.connect() as conn:
-        try:
-            result = conn.execute(text("SELECT * FROM courts ORDER BY created_at"))
-        except Exception:
-            result = conn.execute(text("SELECT * FROM courts"))
-        return [dict(row) for row in result.mappings()]
+    try:
+        return list_courts_uc.execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @courts_router.get("/{court_id}")
 def get_court(court_id: str):
-    with engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM courts WHERE id = :id"), {"id": court_id})
-        row = result.mappings().first()
-        if not row:
-            raise HTTPException(status_code=404, detail="Court not found")
-        return dict(row)
+    try:
+        return get_court_uc.execute(court_id)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @courts_router.post("")
 def create_court(court: dict, payload: dict = Depends(require_admin)):
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO courts (id, business_id, name, location, number, status)
-            VALUES (:id, :business_id, :name, :location, :number, :status)
-            ON DUPLICATE KEY UPDATE
-                name = VALUES(name), location = VALUES(location),
-                number = VALUES(number), status = VALUES(status)
-        """), {
-            "id": court["id"],
-            "business_id": court.get("business_id"),
-            "name": court["name"],
-            "location": court.get("location"),
-            "number": court.get("number"),
-            "status": court.get("status", "AVAILABLE"),
-        })
-    return court
+    try:
+        return create_court_uc.execute(court)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @courts_router.put("/{court_id}")
 def update_court(court_id: str, court: dict, payload: dict = Depends(require_admin)):
-    with engine.begin() as conn:
-        conn.execute(text("""
-            UPDATE courts SET
-                name = :name, location = :location, number = :number, status = :status
-            WHERE id = :id
-        """), {
-            "id": court_id,
-            "name": court.get("name"),
-            "location": court.get("location"),
-            "number": court.get("number"),
-            "status": court.get("status", "AVAILABLE"),
-        })
-    return {"id": court_id, **court}
+    try:
+        return update_court_uc.execute(court_id, court)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @courts_router.delete("/{court_id}")
 def delete_court(court_id: str, payload: dict = Depends(require_admin)):
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM courts WHERE id = :id"), {"id": court_id})
-    return {"message": "Court deleted"}
+    try:
+        return delete_court_uc.execute(court_id)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

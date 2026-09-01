@@ -5,13 +5,14 @@ class Pair:
     def __init__(
         self,
         pair_id: str,
-        name: str,
         player1_id: str,
         player2_id: str,
         created_by: str,
+        name: str | None = None,
         status: str = "ACTIVE",
         tournaments_disputed: int = 0,
         titles_won: int = 0,
+        created_at: str | None = None,
     ):
         self.id = pair_id
         self.name = name
@@ -21,3 +22,4 @@ class Pair:
         self.status = status
         self.tournaments_disputed = tournaments_disputed
         self.titles_won = titles_won
+        self.created_at = created_at

@@ -10,6 +10,8 @@ class Court:
         status: str = "AVAILABLE",
         location: str | None = None,
         number: int | None = None,
+        created_at: str | None = None,
+        updated_at: str | None = None,
     ):
         self.id = court_id
         self.name = name
@@ -17,3 +19,5 @@ class Court:
         self.status = status
         self.location = location
         self.number = number
+        self.created_at = created_at
+        self.updated_at = updated_at

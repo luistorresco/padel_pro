@@ -82,44 +82,6 @@ def main():
     with engine.begin() as conn:
         print("[seed_full] Starting full database seed...")
 
-        # Ensure all users referenced by pairs/matches exist
-        referenced_ids = set()
-        for p in pairs:
-            if p.get("player1_id"):
-                referenced_ids.add(p["player1_id"])
-            if p.get("player2_id"):
-                referenced_ids.add(p["player2_id"])
-        for m in matches:
-            for k in ["player_a1_id", "player_a2_id", "player_b1_id", "player_b2_id"]:
-                if m.get(k):
-                    referenced_ids.add(m[k])
-        existing_ids = {u["id"] for u in users}
-        missing_ids = referenced_ids - existing_ids
-        if missing_ids:
-            print(f"[seed_full] Adding {len(missing_ids)} missing referenced users")
-            for uid in missing_ids:
-                try:
-                    conn.execute(text("""
-                        INSERT INTO users (id, name, surname, username, email, avatar, account_type, status,
-                            level, position, dominant_hand, points)
-                        VALUES (:id, :name, :surname, :username, :email, :avatar, 'USER', 'ACTIVE',
-                            :level, :position, :dominant_hand, :points)
-                        ON DUPLICATE KEY UPDATE name = VALUES(name)
-                    """), {
-                        "id": uid,
-                        "name": uid.replace("usr_", "").replace("_", " ").title(),
-                        "surname": "",
-                        "username": uid,
-                        "email": f"{uid}@padelpro.app",
-                        "avatar": None,
-                        "level": "INTERMEDIATE",
-                        "position": "RIGHT",
-                        "dominant_hand": "RIGHT",
-                        "points": 0,
-                    })
-                except Exception as e:
-                    print(f"[seed_full] Missing user skip {uid}: {e}")
-
         # Create business if none exists
         result = conn.execute(text("SELECT COUNT(*) as cnt FROM businesses"))
         biz_count = result.mappings().first()["cnt"]

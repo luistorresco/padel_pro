@@ -52,4 +52,6 @@ class SQLAlchemyCourtRepository(ICourtRepository):
             status=row.get("status", "AVAILABLE"),
             location=row.get("location"),
             number=row.get("number"),
+            created_at=row.get("created_at"),
+            updated_at=row.get("updated_at"),
         )
