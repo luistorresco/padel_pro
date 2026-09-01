@@ -27,6 +27,10 @@ class Container:
         self._user_points_repo = None
 
     @property
+    def engine(self):
+        return engine
+
+    @property
     def user_repo(self):
         if self._user_repo is None:
             self._user_repo = SQLAlchemyUserRepository(engine)

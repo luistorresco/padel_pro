@@ -52,9 +52,21 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     def on_startup():
         try:
+            from infrastructure.database import engine
             with engine.begin() as conn:
                 from infrastructure.migrations import run_migrations
                 run_migrations(conn)
+                try:
+                    result = conn.execute(__import__('sqlalchemy').text("SELECT COUNT(*) as cnt FROM users"))
+                    cnt = result.mappings().first()["cnt"]
+                    if cnt == 0:
+                        from seed_full import main as seed_main
+                        seed_main()
+                        print("[db] Database seeded on startup.")
+                    else:
+                        print("[db] Database already contains data.")
+                except Exception as seed_err:
+                    print(f"[db] Seed check warning: {seed_err}")
             print("[db] Migrations applied on startup.")
         except Exception as e:
             print(f"[db] Startup migration warning: {e}")
