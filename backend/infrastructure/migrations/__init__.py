@@ -111,3 +111,107 @@ def run_migrations(conn):
                     pass
     except Exception:
         pass
+
+    try:
+        pair_cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pairs'
+            """)).mappings()
+        ]
+        pair_alters = {
+            "name": "ALTER TABLE pairs ADD COLUMN name VARCHAR(150) NULL",
+            "created_by": "ALTER TABLE pairs ADD COLUMN created_by VARCHAR(255) NOT NULL DEFAULT ''",
+            "tournaments_disputed": "ALTER TABLE pairs ADD COLUMN tournaments_disputed INT NOT NULL DEFAULT 0",
+            "titles_won": "ALTER TABLE pairs ADD COLUMN titles_won INT NOT NULL DEFAULT 0",
+            "created_at": "ALTER TABLE pairs ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "ALTER TABLE pairs ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        }
+        for col, stmt in pair_alters.items():
+            if col not in pair_cols:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        court_cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'courts'
+            """)).mappings()
+        ]
+        court_alters = {
+            "business_id": "ALTER TABLE courts ADD COLUMN business_id VARCHAR(255) NOT NULL DEFAULT 'biz_default'",
+            "location": "ALTER TABLE courts ADD COLUMN location TEXT NULL",
+            "number": "ALTER TABLE courts ADD COLUMN number INT NULL",
+            "created_at": "ALTER TABLE courts ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "ALTER TABLE courts ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        }
+        for col, stmt in court_alters.items():
+            if col not in court_cols:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        tournament_cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tournaments'
+            """)).mappings()
+        ]
+        tournament_alters = {
+            "business_id": "ALTER TABLE tournaments ADD COLUMN business_id VARCHAR(255) NULL",
+            "logo": "ALTER TABLE tournaments ADD COLUMN logo TEXT NULL",
+            "description": "ALTER TABLE tournaments ADD COLUMN description TEXT NULL",
+            "category": "ALTER TABLE tournaments ADD COLUMN category VARCHAR(100) NULL",
+            "level": "ALTER TABLE tournaments ADD COLUMN level VARCHAR(100) NULL",
+            "location": "ALTER TABLE tournaments ADD COLUMN location TEXT NULL",
+            "format": "ALTER TABLE tournaments ADD COLUMN format VARCHAR(100) NULL",
+            "max_pairs": "ALTER TABLE tournaments ADD COLUMN max_pairs INT NULL",
+            "visibility": "ALTER TABLE tournaments ADD COLUMN visibility ENUM('PUBLIC','PRIVATE') NOT NULL DEFAULT 'PRIVATE'",
+            "rules": "ALTER TABLE tournaments ADD COLUMN rules JSON NULL",
+            "deleted_at": "ALTER TABLE tournaments ADD COLUMN deleted_at DATETIME NULL",
+            "created_at": "ALTER TABLE tournaments ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "ALTER TABLE tournaments ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        }
+        for col, stmt in tournament_alters.items():
+            if col not in tournament_cols:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        notif_cols = [
+            r["COLUMN_NAME"]
+            for r in conn.execute(text("""
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications'
+            """)).mappings()
+        ]
+        notif_alters = {
+            "read_status": "ALTER TABLE notifications ADD COLUMN read_status TINYINT(1) NOT NULL DEFAULT 0",
+            "type": "ALTER TABLE notifications ADD COLUMN type VARCHAR(100) NULL",
+            "link_id": "ALTER TABLE notifications ADD COLUMN link_id VARCHAR(255) NULL",
+            "created_at": "ALTER TABLE notifications ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        }
+        for col, stmt in notif_alters.items():
+            if col not in notif_cols:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
+    except Exception:
+        pass

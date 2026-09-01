@@ -52,8 +52,10 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     def on_startup():
         try:
-            from infrastructure.database import engine
+            from infrastructure.database import engine, create_schema, seed_roles
             with engine.begin() as conn:
+                create_schema(conn)
+                seed_roles(conn)
                 from infrastructure.migrations import run_migrations
                 run_migrations(conn)
                 try:
