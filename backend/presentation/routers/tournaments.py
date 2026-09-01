@@ -81,3 +81,13 @@ def register_for_tournament(tournament_id: str, body: dict, payload: dict = Depe
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@tournaments_router.post("/{tournament_id}/register_user")
+def register_user_for_tournament(tournament_id: str, body: dict, payload: dict = Depends(require_admin)):
+    try:
+        return register_for_tournament_uc.execute(tournament_id, body, payload.get("sub", ""))
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

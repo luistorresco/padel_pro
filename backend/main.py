@@ -79,9 +79,44 @@ def create_app() -> FastAPI:
                         LIMIT 1
                     """)).mappings().first()
                     if not admin_check:
-                        from seed_full import main as seed_main
-                        seed_main()
-                        print("[db] Ensured admin user exists on startup.")
+                        try:
+                            result = conn.execute(__import__('sqlalchemy').text("SELECT COUNT(*) as cnt FROM users"))
+                            cnt = result.mappings().first()["cnt"]
+                            if cnt == 0:
+                                from seed_full import main as seed_main
+                                seed_main()
+                                print("[db] Database seeded on startup (admin missing).")
+                            else:
+                                admin_id = "usr_admin_super"
+                                admin_email = "admin@padelpro.app"
+                                admin_name = "Admin User"
+                                hashed = __import__('domain.services.auth_service', fromlist=['AuthService']).AuthService(secret_key="padel-pro-secret-key-change-in-production").hash_password("admin123")
+                                conn.execute(text("""
+                                    INSERT INTO users (id, name, surname, username, email, account_type, status, points)
+                                    VALUES (:id, :name, :surname, :username, :email, 'USER', 'ACTIVE', 0)
+                                    ON DUPLICATE KEY UPDATE name = VALUES(name)
+                                """), {
+                                    "id": admin_id,
+                                    "name": admin_name,
+                                    "surname": "System",
+                                    "username": "admin",
+                                    "email": admin_email,
+                                })
+                                conn.execute(text("""
+                                    INSERT INTO users_auth (user_id, email, hashed_password)
+                                    VALUES (:user_id, :email, :hashed_password)
+                                    ON DUPLICATE KEY UPDATE email = VALUES(email), hashed_password = VALUES(hashed_password)
+                                """), {"user_id": admin_id, "email": admin_email, "hashed_password": hashed})
+                                role_id = conn.execute(text("SELECT id FROM roles WHERE name = 'SUPER_ADMIN'")).scalar()
+                                if role_id:
+                                    conn.execute(text("""
+                                        INSERT INTO user_roles (user_id, role_id)
+                                        VALUES (:user_id, :role_id)
+                                        ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+                                    """), {"user_id": admin_id, "role_id": role_id})
+                                print(f"[db] Created admin user: {admin_email} / admin123")
+                        except Exception as admin_create_err:
+                            print(f"[db] Admin creation warning: {admin_create_err}")
                 except Exception as admin_err:
                     print(f"[db] Admin check warning: {admin_err}")
             print("[db] Migrations applied on startup.")

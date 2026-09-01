@@ -93,6 +93,38 @@ def main():
             """))
             print("[seed_full] Business created.")
 
+        # Seed users
+        for user in users:
+            try:
+                conn.execute(text("""
+                    INSERT INTO users (id, name, surname, username, email, avatar, account_type, status,
+                        level, position, dominant_hand, points, invited_by, invitation_code, converted_at, deleted_at)
+                    VALUES (:id, :name, :surname, :username, :email, :avatar, 'USER', 'ACTIVE',
+                        :level, :position, :dominant_hand, :points, :invited_by, :invitation_code, :converted_at, :deleted_at)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
+                        email = VALUES(email), avatar = VALUES(avatar), level = VALUES(level),
+                        position = VALUES(position), dominant_hand = VALUES(dominant_hand),
+                        points = VALUES(points)
+                """), {
+                    "id": user["id"],
+                    "name": user.get("name", ""),
+                    "surname": user.get("surname", ""),
+                    "username": user.get("username") or user.get("name", ""),
+                    "email": user.get("email") or f"{user['id']}@padelpro.app",
+                    "avatar": user.get("avatar"),
+                    "level": _map_skill(user.get("level")),
+                    "position": _map_position(user.get("position")),
+                    "dominant_hand": _map_position(user.get("position")),
+                    "points": user.get("points", 0),
+                    "invited_by": user.get("invited_by"),
+                    "invitation_code": user.get("invitation_code"),
+                    "converted_at": user.get("converted_at"),
+                    "deleted_at": None,
+                })
+            except Exception as e:
+                print(f"[seed_full] User skip {user['id']}: {e}")
+
         # Seed profiles
         for user in users:
             try:
@@ -405,18 +437,24 @@ def main():
 
         # Seed match_events
         for m in matches:
+            match_id = m["id"]
+            match_row = conn.execute(text("SELECT pair_a_id, pair_b_id FROM matches WHERE id = :id"), {"id": match_id}).mappings().first()
+            if not match_row:
+                continue
+            winning_pair = match_row.get("pair_a_id")
             sets = m.get("sets", [])
             for set_idx, s in enumerate(sets, 1):
                 try:
                     conn.execute(text("""
                         INSERT INTO match_events (id, match_id, set_number, game_number, event_type, description, winning_pair_id)
-                        VALUES (:id, :match_id, :set_number, :game_number, 'SET_START', 'Inicio de set', NULL)
+                        VALUES (:id, :match_id, :set_number, :game_number, 'SET_START', 'Inicio de set', :winning_pair_id)
                         ON DUPLICATE KEY UPDATE event_type = VALUES(event_type)
                     """), {
                         "id": f"event_{m['id']}_set{set_idx}",
                         "match_id": m["id"],
                         "set_number": set_idx,
                         "game_number": 0,
+                        "winning_pair_id": winning_pair,
                     })
                 except Exception as e:
                     print(f"[seed_full] Match event skip {m['id']}: {e}")
