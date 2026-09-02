@@ -248,7 +248,7 @@ export default function App() {
   }, []);
 
   // Active Live Match
-  const activeLiveMatch = matches.find((m) => m.status === 'LIVE') || matches[0];
+  const activeLiveMatch = matches.find((m) => m.status === 'LIVE');
   const liveCount = matches.filter((m) => m.status === 'LIVE').length;
   const nextUpcomingMatch = matches.find((m) => m.status === 'UPCOMING');
 

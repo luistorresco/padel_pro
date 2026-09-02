@@ -332,27 +332,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <h4 className="font-headline font-bold text-[13px] text-[#8e9379] border-b border-[#333539] pb-1">
                   ✅ Partidos Terminados
                 </h4>
-                {matches.filter((m) => m.status === 'FINISHED').map((m) => (
-                  <div
-                    key={m.id}
-                    className="bg-[#1b1e23]/60 p-3 rounded-lg border border-[#333539]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[12px] font-mono-stats opacity-75"
-                  >
-                    <div className="flex-1">
-                      <span className="font-bold text-[#8e9379] block">
-                        {m.pairAName} VS {m.pairBName}
-                      </span>
-                      <span className="text-[11px] text-[#8e9379] block mt-0.5">
-                        Pista: <b className="text-[#c4c9ac]">{m.courtName || 'Sin asignar'}</b>
-                      </span>
-                      <span className="text-[11px] text-[#8e9379] block mt-0.5">
-                        Fecha/Hora: <b className="text-[#c4c9ac]">{m.dateTime || 'Sin programar'}</b>
-                      </span>
-                      <span className="text-[10px] text-[#c3f400] font-bold mt-1 inline-block bg-[#c3f400]/10 px-2 py-0.5 rounded">
-                        FINALIZADO
-                      </span>
+                {matches
+                  .filter((m) => m.status === 'FINISHED')
+                  .sort((a, b) => new Date(b.dateTime || 0).getTime() - new Date(a.dateTime || 0).getTime())
+                  .slice(0, 3)
+                  .map((m) => (
+                    <div
+                      key={m.id}
+                      className="bg-[#1b1e23]/60 p-3 rounded-lg border border-[#333539]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[12px] font-mono-stats opacity-75"
+                    >
+                      <div className="flex-1">
+                        <span className="font-bold text-[#8e9379] block">
+                          {m.pairAName} VS {m.pairBName}
+                        </span>
+                        <span className="text-[11px] text-[#8e9379] block mt-0.5">
+                          Pista: <b className="text-[#c4c9ac]">{m.courtName || 'Sin asignar'}</b>
+                        </span>
+                        <span className="text-[11px] text-[#8e9379] block mt-0.5">
+                          Fecha/Hora: <b className="text-[#c4c9ac]">{m.dateTime || 'Sin programar'}</b>
+                        </span>
+                        <span className="text-[10px] text-[#c3f400] font-bold mt-1 inline-block bg-[#c3f400]/10 px-2 py-0.5 rounded">
+                          FINALIZADO
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
 
