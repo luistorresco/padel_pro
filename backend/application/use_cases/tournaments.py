@@ -4,13 +4,26 @@ from domain.exceptions import EntityNotFound
 
 
 class ListTournamentsUseCase:
-    def __init__(self, tournament_repo):
+    def __init__(self, tournament_repo, match_repo):
         self.tournament_repo = tournament_repo
+        self.match_repo = match_repo
 
     def execute(self):
         tournaments = self.tournament_repo.list_all()
         result = []
         for t in tournaments:
+            pairs = self.tournament_repo.find_full(t.id)
+            registered_pair_ids = []
+            registered_user_ids = []
+            court_ids = []
+            if pairs:
+                for p in pairs.get("pairs", []):
+                    registered_pair_ids.append(p.get("pair_id") or p.get("id"))
+                for p in pairs.get("players", []):
+                    registered_user_ids.append(p.get("user_id"))
+                for m in pairs.get("matches", []):
+                    if m.get("courtId") or m.get("court_id"):
+                        court_ids.append(m.get("courtId") or m.get("court_id"))
             result.append({
                 "id": t.id,
                 "name": t.name,
@@ -31,18 +44,34 @@ class ListTournamentsUseCase:
                 "created_at": getattr(t, 'created_at', None),
                 "updated_at": getattr(t, 'updated_at', None),
                 "deleted_at": t.deleted_at,
+                "registeredPairIds": registered_pair_ids,
+                "registeredUserIds": registered_user_ids,
+                "courtIds": court_ids,
             })
         return result
 
 
 class GetTournamentUseCase:
-    def __init__(self, tournament_repo):
+    def __init__(self, tournament_repo, match_repo):
         self.tournament_repo = tournament_repo
+        self.match_repo = match_repo
 
     def execute(self, tournament_id):
         t = self.tournament_repo.find_by_id(tournament_id)
         if not t:
             raise EntityNotFound("Tournament not found")
+        full = self.tournament_repo.find_full(tournament_id)
+        registered_pair_ids = []
+        registered_user_ids = []
+        court_ids = []
+        if full:
+            for p in full.get("pairs", []):
+                registered_pair_ids.append(p.get("pair_id") or p.get("id"))
+            for p in full.get("players", []):
+                registered_user_ids.append(p.get("user_id"))
+            for m in full.get("matches", []):
+                if m.get("courtId") or m.get("court_id"):
+                    court_ids.append(m.get("courtId") or m.get("court_id"))
         return {
             "id": t.id,
             "name": t.name,
@@ -63,6 +92,9 @@ class GetTournamentUseCase:
             "created_at": getattr(t, 'created_at', None),
             "updated_at": getattr(t, 'updated_at', None),
             "deleted_at": t.deleted_at,
+            "registeredPairIds": registered_pair_ids,
+            "registeredUserIds": registered_user_ids,
+            "courtIds": court_ids,
         }
 
 
