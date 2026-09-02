@@ -607,12 +607,14 @@ export default function App() {
   };
 
   const handleDeleteMatch = async (matchId: string) => {
+    const previous = matches;
     setMatches((prev) => prev.filter((m) => m.id !== matchId));
     try {
       await api.deleteMatch(matchId);
       alert('Partido eliminado correctamente');
     } catch (error) {
       console.error('[App] Failed to delete match via API.', error);
+      setMatches(previous);
       alert('No se pudo eliminar el partido en el servidor.');
     }
   };
@@ -661,6 +663,8 @@ export default function App() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    const previous = players;
+    const previousUser = user;
     setPlayers((prev) => prev.filter((p) => p.id !== userId));
     if (user.id === userId) {
       const fallback = players.find((p) => p.id !== userId) || players[0];
@@ -676,12 +680,21 @@ export default function App() {
       timestamp: new Date().toLocaleString(),
     };
     setAuditLogs((prev) => [newAudit, ...prev]);
-    api.deleteUser(userId).catch((error) => {
+    try {
+      await api.deleteUser(userId);
+    } catch (error) {
       console.error('[App] Failed to delete user via API.', error);
-    });
+      setPlayers(previous);
+      if (user.id === userId) {
+        setUser(previousUser);
+      }
+      alert('No se pudo eliminar el usuario en el servidor.');
+    }
   };
 
   const handleDeleteTournament = async (tourId: string) => {
+    const previousTournaments = tournaments;
+    const previousMatches = matches;
     setTournaments((prev) => prev.filter((t) => t.id !== tourId));
     setMatches((prev) => prev.filter((m) => m.tournamentId !== tourId));
     const newAudit: AuditLog = {
@@ -694,9 +707,14 @@ export default function App() {
       timestamp: new Date().toLocaleString(),
     };
     setAuditLogs((prev) => [newAudit, ...prev]);
-    api.deleteTournament(tourId).catch((error) => {
+    try {
+      await api.deleteTournament(tourId);
+    } catch (error) {
       console.error('[App] Failed to delete tournament via API.', error);
-    });
+      setTournaments(previousTournaments);
+      setMatches(previousMatches);
+      alert('No se pudo eliminar el torneo en el servidor.');
+    }
   };
 
   return (
