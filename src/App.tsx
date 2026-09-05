@@ -291,6 +291,10 @@ export default function App() {
     if (matchTime && matchTime < now - 60 * 60 * 1000) return false;
     return true;
   });
+  const lastFinishedMatch = matches
+    .filter((m) => m.status === 'FINISHED')
+    .sort((a, b) => new Date(b.dateTime || 0).getTime() - new Date(a.dateTime || 0).getTime())[0];
+  const featuredMatch = activeLiveMatch || lastFinishedMatch;
 
   // Handlers
   const handleToggleRole = () => {
@@ -809,9 +813,11 @@ export default function App() {
                   <section className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-[#FF3B30] pulse-animation" />
+                        {featuredMatch?.status === 'LIVE' && (
+                          <div className="w-3 h-3 rounded-full bg-[#FF3B30] pulse-animation" />
+                        )}
                         <h2 className="font-headline font-bold text-[18px] text-white tracking-wide uppercase">
-                          Live Now
+                          {featuredMatch?.status === 'LIVE' ? 'Live Now' : featuredMatch?.status === 'FINISHED' ? 'Último Partido Finalizado' : 'Live Now'}
                         </h2>
                       </div>
                       <span className="font-mono-stats text-[11px] text-[#c4c9ac]">
@@ -820,9 +826,9 @@ export default function App() {
                     </div>
 
                     {/* Active Match Scorecard */}
-                    {activeLiveMatch && (
+                    {featuredMatch && (
                       <LiveMatchCard
-                        match={activeLiveMatch}
+                        match={featuredMatch}
                         onOpenMatch={(id) => setSelectedMatchId(id)}
                       />
                     )}
@@ -832,20 +838,20 @@ export default function App() {
                   <section className="grid grid-cols-2 gap-3">
                     {/* Primary Bento Action */}
                     <button
-                      onClick={() => activeLiveMatch && setSelectedMatchId(activeLiveMatch.id)}
+                      onClick={() => featuredMatch && setSelectedMatchId(featuredMatch.id)}
                       className="col-span-2 bg-[#c3f400] text-[#161e00] rounded-xl p-4 flex items-center justify-between transition-transform active:scale-[0.98] shadow-lg border border-[#c3f400]/40 group"
                     >
                       <div className="flex flex-col items-start text-left">
                         <span className="font-headline font-extrabold text-[18px] leading-tight">
-                          Iniciar Partido & Control por Gestos
+                          {featuredMatch?.status === 'FINISHED' ? 'Ver Resultado' : 'Iniciar Partido & Control por Gestos'}
                         </span>
                         <span className="font-mono-stats text-[11px] opacity-80 mt-1">
-                          Marcador inteligente con cámara
+                          {featuredMatch?.status === 'FINISHED' ? 'Resumen del último encuentro' : 'Marcador inteligente con cámara'}
                         </span>
                       </div>
                       <div className="w-10 h-10 rounded-full bg-[#161e00]/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                          play_arrow
+                          {featuredMatch?.status === 'FINISHED' ? 'check' : 'play_arrow'}
                         </span>
                       </div>
                     </button>
