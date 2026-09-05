@@ -152,6 +152,7 @@ class SQLAlchemyMatchRepository(IMatchRepository):
                     LEFT JOIN users ua2 ON pa.player2_id = ua2.id
                     LEFT JOIN users ub1 ON pb.player1_id = ub1.id
                     LEFT JOIN users ub2 ON pb.player2_id = ub2.id
+                    WHERE m.deleted_at IS NULL
                     ORDER BY m.date_time
                 """)).mappings().all()
             except Exception:
@@ -188,6 +189,7 @@ class SQLAlchemyMatchRepository(IMatchRepository):
                     LEFT JOIN users ua2 ON pa.player2_id = ua2.id
                     LEFT JOIN users ub1 ON pb.player1_id = ub1.id
                     LEFT JOIN users ub2 ON pb.player2_id = ub2.id
+                    WHERE m.deleted_at IS NULL
                     ORDER BY m.date_time
                 """)).mappings().all()
             return [dict(r) for r in rows]

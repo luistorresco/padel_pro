@@ -665,6 +665,13 @@ export default function App() {
     try {
       await api.deleteMatch(matchId);
       alert('Partido eliminado correctamente');
+      const refreshed = await api.getMatches();
+      if (refreshed) {
+        setMatches((refreshed as Match[]).map((m) => ({
+          ...m,
+          currentGame: m.currentGame || createInitialGameScore('A'),
+        })));
+      }
     } catch (error) {
       console.error('[App] Failed to delete match via API.', error);
       setMatches(previous);
@@ -885,11 +892,11 @@ export default function App() {
                       </h2>
 
                       <div className="flex flex-col gap-2">
-                        {matches
-                          .filter((m) => m.status === 'UPCOMING')
-                          .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
-                          .slice(0, 3)
-                          .map((m) => (
+                      {matches
+                        .filter((m) => ['UPCOMING', 'SCHEDULED'].includes(m.status))
+                        .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
+                        .slice(0, 3)
+                        .map((m) => (
                             <div
                               key={m.id}
                               onClick={() => setSelectedMatchId(m.id)}
