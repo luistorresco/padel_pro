@@ -8,7 +8,7 @@ from infrastructure.container import container
 from application.use_cases.auth import LoginUseCase, RegisterUseCase, GetCurrentUserUseCase
 from application.use_cases.users import ListUsersUseCase, GetUserUseCase, CreateUserUseCase, UpdateUserUseCase, DeleteUserUseCase, UpdateUserPrivacyUseCase, ConvertGuestUseCase
 from application.use_cases.tournaments import ListTournamentsUseCase, GetTournamentUseCase, GetTournamentFullUseCase, CreateTournamentUseCase, UpdateTournamentUseCase, DeleteTournamentUseCase, RegisterForTournamentUseCase
-from application.use_cases.matches import ListMatchesUseCase, GetMatchUseCase, GetMatchPlayersUseCase, CreateMatchUseCase, UpdateMatchCourtUseCase, UpdateMatchDateTimeUseCase, FinishMatchUseCase, CreateMatchEventUseCase, DeleteMatchUseCase, GenerateBracketUseCase
+from application.use_cases.matches import ListMatchesUseCase, GetMatchUseCase, GetMatchPlayersUseCase, CreateMatchUseCase, UpdateMatchCourtUseCase, UpdateMatchDateTimeUseCase, UpdateMatchUseCase, FinishMatchUseCase, CreateMatchEventUseCase, DeleteMatchUseCase, GenerateBracketUseCase
 from application.use_cases.pairs import ListPairsUseCase, GetPairUseCase, CreatePairUseCase, DeletePairUseCase
 from application.use_cases.courts import ListCourtsUseCase, GetCourtUseCase, CreateCourtUseCase, UpdateCourtUseCase, DeleteCourtUseCase
 from application.use_cases.notifications import ListNotificationsUseCase, CreateNotificationUseCase
@@ -40,7 +40,7 @@ get_tournament_uc = GetTournamentUseCase(container.tournament_repo, container.ma
 get_tournament_full_uc = GetTournamentFullUseCase(container.tournament_repo)
 create_tournament_uc = CreateTournamentUseCase(container.tournament_repo)
 update_tournament_uc = UpdateTournamentUseCase(container.tournament_repo)
-delete_tournament_uc = DeleteTournamentUseCase(container.tournament_repo)
+delete_tournament_uc = DeleteTournamentUseCase(container.tournament_repo, container.match_repo)
 register_for_tournament_uc = RegisterForTournamentUseCase(container.tournament_repo, container.match_repo)
 
 list_matches_uc = ListMatchesUseCase(container.match_repo)
@@ -49,6 +49,7 @@ get_match_players_uc = GetMatchPlayersUseCase(container.match_repo)
 create_match_uc = CreateMatchUseCase(container.match_repo)
 update_match_court_uc = UpdateMatchCourtUseCase(container.match_repo)
 update_match_date_time_uc = UpdateMatchDateTimeUseCase(container.match_repo)
+update_match_uc = UpdateMatchUseCase(container.match_repo)
 finish_match_uc = FinishMatchUseCase(container.match_repo, container.user_repo, container.user_points_repo, container.pair_repo)
 create_match_event_uc = CreateMatchEventUseCase(container.match_event_repo)
 delete_match_uc = DeleteMatchUseCase(container.match_repo)

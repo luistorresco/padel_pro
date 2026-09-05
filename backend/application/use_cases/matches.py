@@ -455,6 +455,18 @@ class DeleteMatchUseCase:
         return {"message": "Match deleted"}
 
 
+class UpdateMatchUseCase:
+    def __init__(self, match_repo):
+        self.match_repo = match_repo
+
+    def execute(self, match_id, data):
+        m = self.match_repo.find_by_id(match_id)
+        if not m:
+            raise EntityNotFound("Match not found")
+        self.match_repo.update(match_id, data)
+        return {"id": match_id, "updated": True}
+
+
 class GenerateBracketUseCase:
     def __init__(self, tournament_repo, match_repo, pair_repo):
         self.tournament_repo = tournament_repo

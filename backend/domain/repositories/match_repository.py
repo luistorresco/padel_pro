@@ -45,3 +45,7 @@ class IMatchRepository(ABC):
     @abstractmethod
     def find_by_id_detailed(self, match_id: str) -> Optional[Dict]:
         pass
+
+    @abstractmethod
+    def update(self, match_id: str, data: Dict) -> None:
+        pass

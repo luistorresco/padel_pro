@@ -11,6 +11,7 @@ from presentation.deps_module import (
     create_match_uc,
     update_match_court_uc,
     update_match_date_time_uc,
+    update_match_uc,
     finish_match_uc,
     create_match_event_uc,
     delete_match_uc,
@@ -120,9 +121,22 @@ def update_match_datetime(match_id: str, body: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@matches_router.put("/{match_id}")
+def update_match(match_id: str, body: dict):
+    try:
+        return update_match_uc.execute(match_id, body)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @matches_router.post("/{match_id}/finish")
 def finish_match(match_id: str, body: dict):
     try:
+        m = get_match_uc.execute(match_id)
+        if m.status == 'FINISHED':
+            return {"status": "finished", "matchId": match_id, "alreadyFinished": True}
         return finish_match_uc.execute(match_id, body)
     except Exception as e:
         if "not found" in str(e).lower():

@@ -211,13 +211,17 @@ class UpdateTournamentUseCase:
 
 
 class DeleteTournamentUseCase:
-    def __init__(self, tournament_repo):
+    def __init__(self, tournament_repo, match_repo):
         self.tournament_repo = tournament_repo
+        self.match_repo = match_repo
 
     def execute(self, tournament_id):
         t = self.tournament_repo.find_by_id(tournament_id)
         if not t:
             raise EntityNotFound("Tournament not found")
+        matches = self.match_repo.find_by_tournament(tournament_id)
+        for m in matches:
+            self.match_repo.delete(m.id)
         self.tournament_repo.delete(tournament_id)
         return {"message": "Tournament deleted"}
 

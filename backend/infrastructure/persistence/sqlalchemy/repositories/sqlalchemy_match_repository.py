@@ -104,6 +104,27 @@ class SQLAlchemyMatchRepository(IMatchRepository):
                 WHERE id = :id
             """), {"id": match_id, "winner_id": winner_pair_id, "winner_team": winner_team})
 
+    def update(self, match_id: str, data: Dict) -> None:
+        if not data:
+            return
+        allowed_fields = {
+            "tournament_id", "round_id", "business_id", "court_id", "created_by",
+            "pair_a_id", "pair_b_id", "date_time", "status", "visibility", "sets",
+            "current_set_index", "winner_pair_id", "winner_team", "start_time_ms",
+            "elapsed_time_sec", "golden_point", "sets_to_win", "round_name", "deleted_at",
+        }
+        set_parts = []
+        params = {"id": match_id}
+        for key, value in data.items():
+            if key in allowed_fields:
+                set_parts.append(f"{key} = :{key}")
+                params[key] = value
+        if not set_parts:
+            return
+        sql = f"UPDATE matches SET {', '.join(set_parts)} WHERE id = :id"
+        with self.engine.begin() as conn:
+            conn.execute(text(sql), params)
+
     def find_all_detailed(self) -> List[Dict]:
         with self.engine.connect() as conn:
             try:
