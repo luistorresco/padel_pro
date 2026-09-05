@@ -14,7 +14,8 @@ class BracketService:
             "Semifinal": "Gran Final",
             "Round of 16": "Quarterfinal",
             "Quarterfinal": "Semifinal",
-            "Semifinal": "Final",
+            "Final": None,
+            "Gran Final": None,
         }
         return mapping.get(current_round)
 

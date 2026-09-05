@@ -4,6 +4,38 @@ import json
 from domain.exceptions import EntityNotFound
 
 
+def _normalize_set(s: dict) -> dict:
+    return {
+        "teamAGames": s.get("team_a_games") or s.get("teamAGames") or 0,
+        "teamBGames": s.get("team_b_games") or s.get("teamBGames") or 0,
+        "isTieBreak": s.get("is_tie_break") if s.get("is_tie_break") is not None else s.get("isTieBreak") or False,
+        "tieBreakPoints": s.get("tie_break_points") or s.get("tieBreakPoints") or {"teamA": 0, "teamB": 0},
+        "winner": s.get("winner"),
+    }
+
+
+def _normalize_current_game(cg: dict) -> dict:
+    if not cg:
+        return {"teamAPoints": "0", "teamBPoints": "0", "serverTeam": "A", "isDeuce": False}
+    return {
+        "teamAPoints": cg.get("team_a_points") or cg.get("teamAPoints") or "0",
+        "teamBPoints": cg.get("team_b_points") or cg.get("teamBPoints") or "0",
+        "serverTeam": cg.get("server_team") or cg.get("serverTeam") or "A",
+        "isDeuce": cg.get("is_deuce") if cg.get("is_deuce") is not None else cg.get("isDeuce") or False,
+    }
+
+
+def _normalize_match_status(status: str | None) -> str:
+    if not status:
+        return "UPCOMING"
+    s = str(status).strip().upper()
+    if s == "IN_PROGRESS":
+        return "LIVE"
+    if s == "SCHEDULED":
+        return "UPCOMING"
+    return s
+
+
 class ListMatchesUseCase:
     def __init__(self, match_repo):
         self.match_repo = match_repo
@@ -14,6 +46,7 @@ class ListMatchesUseCase:
         for m in rows:
             if isinstance(m.get("sets"), str):
                 m["sets"] = json.loads(m["sets"])
+            m["status"] = _normalize_match_status(m.get("status"))
             m.setdefault("roundId", None)
             m.setdefault("businessId", None)
             m.setdefault("visibility", "PRIVATE")
@@ -37,7 +70,8 @@ class ListMatchesUseCase:
             m.setdefault("pairAName", m.get("pairAName") or "Pareja A")
             m.setdefault("pairBName", m.get("pairBName") or "Pareja B")
             m.setdefault("courtName", m.get("courtName") or "Pista por definir")
-            m["current_game"] = {}
+            m["sets"] = [_normalize_set(s) for s in (m.get("sets") or [])]
+            m["current_game"] = _normalize_current_game(m.get("current_game") or {})
             result.append(m)
         return result
 
@@ -52,6 +86,7 @@ class GetMatchUseCase:
             raise EntityNotFound("Match not found")
         if isinstance(m.get("sets"), str):
             m["sets"] = json.loads(m["sets"])
+        m["status"] = _normalize_match_status(m.get("status"))
         m.setdefault("roundId", None)
         m.setdefault("businessId", None)
         m.setdefault("visibility", "PRIVATE")
@@ -75,7 +110,8 @@ class GetMatchUseCase:
         m.setdefault("pairAName", m.get("pairAName") or "Pareja A")
         m.setdefault("pairBName", m.get("pairBName") or "Pareja B")
         m.setdefault("courtName", m.get("courtName") or "Pista por definir")
-        m["current_game"] = {}
+        m["sets"] = [_normalize_set(s) for s in (m.get("sets") or [])]
+        m["current_game"] = _normalize_current_game(m.get("current_game") or {})
         return m
 
 

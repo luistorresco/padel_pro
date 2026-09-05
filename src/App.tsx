@@ -781,7 +781,7 @@ export default function App() {
                   <section className="grid grid-cols-2 gap-3">
                     {/* Primary Bento Action */}
                     <button
-                      onClick={() => setSelectedMatchId(activeLiveMatch.id)}
+                      onClick={() => activeLiveMatch && setSelectedMatchId(activeLiveMatch.id)}
                       className="col-span-2 bg-[#c3f400] text-[#161e00] rounded-xl p-4 flex items-center justify-between transition-transform active:scale-[0.98] shadow-lg border border-[#c3f400]/40 group"
                     >
                       <div className="flex flex-col items-start text-left">

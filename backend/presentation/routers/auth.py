@@ -1,5 +1,6 @@
 """Auth router."""
 
+import os
 from fastapi import APIRouter, Depends, HTTPException, Header, Body
 from pydantic import BaseModel
 from typing import Optional
@@ -53,7 +54,7 @@ def auth_me(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Missing authorization header")
     token = authorization.replace("Bearer ", "")
     from domain.services.auth_service import AuthService
-    auth_service = AuthService(secret_key="padel-pro-secret-key-change-in-production")
+    auth_service = AuthService(secret_key=os.environ.get("JWT_SECRET_KEY", "padel-pro-secret-key-change-in-production"))
     payload = auth_service.decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")

@@ -329,7 +329,7 @@ export const MatchController: React.FC<MatchControllerProps> = ({
   const handleAwardPoint = (team: 'A' | 'B', eventType = 'POINT', playerId?: string, playerName?: string) => {
     let activeMatch = matchRef.current;
     if (activeMatch.status === 'FINISHED') {
-      activeMatch = { ...activeMatch, status: 'LIVE', winnerTeam: undefined };
+      return;
     }
 
     try {

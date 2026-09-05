@@ -1,4 +1,4 @@
-export type UserRole = 'PLAYER' | 'ADMIN';
+export type UserRole = 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BUSINESS_ADMIN' | 'BUSINESS_MANAGER' | 'PLAYER';
 
 export type PlayerLevel = 'Principiante' | 'Intermedio' | 'Avanzado' | 'Profesional';
 export type DominantHand = 'Derecha' | 'Zurda';

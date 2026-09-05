@@ -30,7 +30,7 @@ engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 
 from domain.services.auth_service import AuthService
 
-auth_service = AuthService(secret_key="padel-pro-secret-key-change-in-production")
+auth_service = AuthService(secret_key=os.environ.get("JWT_SECRET_KEY", "padel-pro-secret-key-change-in-production"))
 
 
 def _map_match_status(value):

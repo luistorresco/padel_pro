@@ -594,7 +594,8 @@ def seed_data(conn, data):
         ('USER', 'Usuario normal de la aplicación'),
         ('BUSINESS_ADMIN', 'Administrador de un negocio'),
         ('BUSINESS_MANAGER', 'Administrador o manager de un negocio'),
-        ('SUPER_ADMIN', 'Administrador general de la plataforma')
+        ('SUPER_ADMIN', 'Administrador general de la plataforma'),
+        ('PLAYER', 'Jugador de padel')
     """))
 
     for auth_user in auth_users:

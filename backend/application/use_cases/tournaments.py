@@ -3,6 +3,19 @@
 from domain.exceptions import EntityNotFound
 
 
+def _normalize_tournament_status(status: str | None) -> str:
+    if not status:
+        return "UPCOMING"
+    s = str(status).strip().upper()
+    if s == "IN_PROGRESS":
+        return "ACTIVE"
+    if s == "OPEN":
+        return "REGISTRATION"
+    if s == "DRAFT":
+        return "UPCOMING"
+    return s
+
+
 class ListTournamentsUseCase:
     def __init__(self, tournament_repo, match_repo):
         self.tournament_repo = tournament_repo
@@ -30,7 +43,7 @@ class ListTournamentsUseCase:
                 "created_by": t.created_by,
                 "start_date": t.start_date,
                 "end_date": t.end_date,
-                "status": t.status,
+                "status": _normalize_tournament_status(t.status),
                 "business_id": t.business_id,
                 "logo": t.logo,
                 "description": t.description,
@@ -78,7 +91,7 @@ class GetTournamentUseCase:
             "created_by": t.created_by,
             "start_date": t.start_date,
             "end_date": t.end_date,
-            "status": t.status,
+            "status": _normalize_tournament_status(t.status),
             "business_id": t.business_id,
             "logo": t.logo,
             "description": t.description,
@@ -113,7 +126,7 @@ class GetTournamentFullUseCase:
             "created_by": t.created_by,
             "start_date": t.start_date,
             "end_date": t.end_date,
-            "status": t.status,
+            "status": _normalize_tournament_status(t.status),
             "business_id": t.business_id,
             "logo": t.logo,
             "description": t.description,

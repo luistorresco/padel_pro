@@ -1,5 +1,6 @@
 """FastAPI dependencies."""
 
+import os
 from fastapi import Depends, HTTPException, Header
 from jose import jwt, JWTError
 from domain.services.auth_service import AuthService
@@ -17,7 +18,7 @@ from application.use_cases.admin import RunMigrationsUseCase
 from domain.services.privacy_service import PrivacyService
 from domain.value_objects.privacy_settings import PrivacySettings
 
-JWT_SECRET_KEY = "padel-pro-secret-key-change-in-production"
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "padel-pro-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 auth_service = AuthService(secret_key=JWT_SECRET_KEY)
 privacy_service = PrivacyService()

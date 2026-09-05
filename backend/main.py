@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
+from sqlalchemy import text
 
 from infrastructure.database import engine
 from presentation.routers import (
@@ -28,7 +29,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+        allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(","),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -91,7 +92,7 @@ def create_app() -> FastAPI:
                                 admin_email = "admin@padelpro.app"
                                 admin_name = "Admin User"
                                 from domain.services.auth_service import AuthService
-                                hashed = AuthService(secret_key="padel-pro-secret-key-change-in-production").hash_password("admin123")
+                                hashed = AuthService(secret_key=os.environ.get("JWT_SECRET_KEY", "padel-pro-secret-key-change-in-production")).hash_password("admin123")
                                 conn.execute(text("""
                                     INSERT INTO users (id, name, surname, username, email, account_type, status, points)
                                     VALUES (:id, :name, :surname, :username, :email, 'USER', 'ACTIVE', 0)
