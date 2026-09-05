@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from domain.services.auth_service import AuthService
 from infrastructure.container import container
 from application.use_cases.auth import LoginUseCase, RegisterUseCase, GetCurrentUserUseCase
-from application.use_cases.users import ListUsersUseCase, GetUserUseCase, CreateUserUseCase, UpdateUserUseCase, DeleteUserUseCase, UpdateUserPrivacyUseCase
+from application.use_cases.users import ListUsersUseCase, GetUserUseCase, CreateUserUseCase, UpdateUserUseCase, DeleteUserUseCase, UpdateUserPrivacyUseCase, ConvertGuestUseCase
 from application.use_cases.tournaments import ListTournamentsUseCase, GetTournamentUseCase, GetTournamentFullUseCase, CreateTournamentUseCase, UpdateTournamentUseCase, DeleteTournamentUseCase, RegisterForTournamentUseCase
 from application.use_cases.matches import ListMatchesUseCase, GetMatchUseCase, GetMatchPlayersUseCase, CreateMatchUseCase, UpdateMatchCourtUseCase, FinishMatchUseCase, CreateMatchEventUseCase, DeleteMatchUseCase
 from application.use_cases.pairs import ListPairsUseCase, GetPairUseCase, CreatePairUseCase, DeletePairUseCase
@@ -33,6 +33,7 @@ create_user_uc = CreateUserUseCase(container.user_repo, auth_service)
 update_user_uc = UpdateUserUseCase(container.user_repo)
 delete_user_uc = DeleteUserUseCase(container.user_repo)
 update_user_privacy_uc = UpdateUserPrivacyUseCase(container.user_repo)
+convert_guest_uc = ConvertGuestUseCase(container.user_repo, auth_service)
 
 list_tournaments_uc = ListTournamentsUseCase(container.tournament_repo, container.match_repo)
 get_tournament_uc = GetTournamentUseCase(container.tournament_repo, container.match_repo)
@@ -84,4 +85,10 @@ def require_admin(payload: dict = Depends(get_current_user)):
     ADMIN_ROLES = {"ADMIN", "SUPER_ADMIN", "BUSINESS_ADMIN", "BUSINESS_MANAGER"}
     if payload.get("role") not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Admin access required")
+    return payload
+
+
+def require_super_admin(payload: dict = Depends(get_current_user)):
+    if payload.get("role") != "SUPER_ADMIN":
+        raise HTTPException(status_code=403, detail="Super admin access required")
     return payload

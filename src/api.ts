@@ -134,4 +134,10 @@ export const api = {
   authMe: (token: string) => fetch(`${API_BASE_NORMALIZED}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   }).then(handleResponse),
+
+  convertGuest: (body: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/users/convert-guest`, {
+    method: 'POST',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(body),
+  }).then(handleResponse),
 };

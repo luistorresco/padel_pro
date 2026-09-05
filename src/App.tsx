@@ -975,6 +975,7 @@ export default function App() {
                   courts={courts}
                   auditLogs={auditLogs}
                   role={role}
+                  currentUserId={user.id}
                   onUpdateMatchCourt={handleUpdateMatchCourt}
                   onUpdateMatchDateTime={handleUpdateMatchDateTime}
                   onDeleteMatch={handleDeleteMatch}

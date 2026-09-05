@@ -197,6 +197,23 @@ class SQLAlchemyUserRepository(IUserRepository):
             """), {"limit": limit, "skip": skip}).mappings()
             return [self._to_entity(dict(row)) for row in rows]
 
+    def list_by_inviter(self, inviter_id: str, limit: int = 100) -> List[User]:
+        with self.engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT * FROM users WHERE deleted_at IS NULL AND invited_by = :inviter_id
+                ORDER BY created_at DESC LIMIT :limit
+            """), {"inviter_id": inviter_id, "limit": limit}).mappings()
+            return [self._to_entity(dict(row)) for row in rows]
+
+    def find_guest_by_invitation_code(self, invitation_code: str) -> Optional[User]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT * FROM users WHERE invitation_code = :code AND account_type = 'GUEST' AND deleted_at IS NULL
+            """), {"code": invitation_code}).mappings().first()
+            if not row:
+                return None
+            return self._to_entity(dict(row))
+
     def _to_entity(self, row: dict) -> User:
         return User(
             user_id=row["id"],

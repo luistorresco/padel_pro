@@ -24,6 +24,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, apiBase }) =>
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [username, setUsername] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +34,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, apiBase }) =>
     setLoading(true);
 
     try {
+      if (isRegister && invitationCode.trim()) {
+        const response = await fetch(`${apiBase}/api/users/convert-guest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invitation_code: invitationCode.trim(),
+            password,
+            name: name.trim(),
+            surname: surname.trim(),
+            username: username.trim(),
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.detail || data.message || `Error ${response.status}: ${response.statusText}`);
+        }
+
+        onLogin(data, data.access_token);
+        return;
+      }
+
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
       const body = isRegister
         ? { email, password, name, surname, username, role: 'PLAYER', stats: EMPTY_STATS }
@@ -124,6 +148,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, apiBase }) =>
                     className="w-full bg-[#111317] border border-[#333539] text-white p-3 rounded-lg text-[14px] font-mono-stats focus:border-[#c3f400] focus:outline-none transition-colors"
                     placeholder="juanpadel"
                   />
+                </div>
+                <div>
+                  <label className="text-[11px] font-mono-stats text-[#c3f400] block mb-1">
+                    Código de invitación (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={invitationCode}
+                    onChange={(e) => setInvitationCode(e.target.value)}
+                    className="w-full bg-[#111317] border border-[#c3f400]/40 text-white p-3 rounded-lg text-[14px] font-mono-stats focus:border-[#c3f400] focus:outline-none transition-colors"
+                    placeholder="INV-XXXX-XXXX"
+                  />
+                  <p className="text-[10px] text-[#c4c9ac] mt-1">
+                    Si tienes un código de invitación, ingrésalo para conservar tu perfil.
+                  </p>
                 </div>
               </>
             )}

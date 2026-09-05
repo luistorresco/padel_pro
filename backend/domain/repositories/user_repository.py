@@ -63,5 +63,13 @@ class IUserRepository(ABC):
         pass
 
     @abstractmethod
+    def list_by_inviter(self, inviter_id: str, limit: int = 100) -> List[User]:
+        pass
+
+    @abstractmethod
+    def find_guest_by_invitation_code(self, invitation_code: str) -> Optional[User]:
+        pass
+
+    @abstractmethod
     def update_privacy(self, user_id: str, privacy_data: Dict) -> None:
         pass

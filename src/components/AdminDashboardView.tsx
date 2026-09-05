@@ -9,6 +9,7 @@ interface AdminDashboardViewProps {
   courts: Court[];
   auditLogs: AuditLog[];
   role: UserRole;
+  currentUserId: string;
   onUpdateMatchCourt: (matchId: string, courtId: string, courtName: string) => void;
   onUpdateMatchDateTime: (matchId: string, dateTime: string) => void;
   onDeleteMatch: (matchId: string) => void;
@@ -65,6 +66,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   courts,
   auditLogs,
   role,
+  currentUserId,
   onUpdateMatchCourt,
   onUpdateMatchDateTime,
   onDeleteMatch,
@@ -104,11 +106,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [newUserSurname, setNewUserSurname] = useState<string>('');
   const [newUserUsername, setNewUserUsername] = useState<string>('');
   const [newUserEmail, setNewUserEmail] = useState<string>('');
-  const [newUserRole, setNewUserRole] = useState<'PLAYER' | 'ADMIN'>('PLAYER');
+  const [newUserRole, setNewUserRole] = useState<'PLAYER' | 'USER' | 'ADMIN' | 'SUPER_ADMIN'>(role === 'SUPER_ADMIN' ? 'USER' : 'PLAYER');
   const [newUserLevel, setNewUserLevel] = useState<'Principiante' | 'Intermedio' | 'Avanzado' | 'Profesional'>('Intermedio');
   const [newUserPosition, setNewUserPosition] = useState<'Drive (Derecha)' | 'Revés (Izquierda)' | 'Ambas'>('Drive (Derecha)');
   const [newUserHand, setNewUserHand] = useState<'Derecha' | 'Zurda'>('Derecha');
   const [newUserPhone, setNewUserPhone] = useState<string>('');
+  const [newUserAccountType, setNewUserAccountType] = useState<'USER' | 'GUEST'>('USER');
+  const [newUserInvitationCode, setNewUserInvitationCode] = useState<string>('');
 
   const activeTournaments = tournaments.filter((t) => t.status === 'ACTIVE').length;
   const liveMatches = matches.filter((m) => m.status === 'LIVE').length;
@@ -116,6 +120,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const handleCreateUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserSurname.trim() || !newUserUsername.trim() || !newUserEmail.trim()) return;
+
+    const invitationCode = newUserInvitationCode.trim() || `INV-${Date.now().toString(36).toUpperCase()}`;
 
     const newUser: User = {
       id: 'usr_' + Date.now(),
@@ -131,6 +137,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       points: 0,
       stats: { ...emptyStats },
       phone: newUserPhone.trim() || undefined,
+      accountType: newUserAccountType,
+      invitationCode,
+      invited_by: currentUserId,
     };
 
     onCreateUser(newUser);
@@ -139,11 +148,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setNewUserSurname('');
     setNewUserUsername('');
     setNewUserEmail('');
-    setNewUserRole('PLAYER');
+    setNewUserRole(role === 'SUPER_ADMIN' ? 'USER' : 'PLAYER');
     setNewUserLevel('Intermedio');
     setNewUserPosition('Drive (Derecha)');
     setNewUserHand('Derecha');
     setNewUserPhone('');
+    setNewUserAccountType('USER');
+    setNewUserInvitationCode('');
   };
 
   return (
@@ -406,6 +417,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <span className="text-[10px] text-[#c4c9ac]">
                       @{p.username} • {p.email}
                     </span>
+                    <span className="text-[10px] text-[#8e9379] block mt-0.5">
+                      {p.accountType === 'GUEST' ? '🟡 Invitado' : '🔵 Usuario'}
+                      {p.invitationCode ? ` • Código: ${p.invitationCode}` : ''}
+                      {p.invited_by ? ` • Invitado por: ${p.invited_by}` : ''}
+                      {(p as any).convertedAt ? ' • ✅ Convertido' : ''}
+                    </span>
                   </div>
                 </div>
 
@@ -413,7 +430,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <span className="bg-[#c3f400]/10 text-[#c3f400] font-bold px-2.5 py-1 rounded">
                     {p.role}
                   </span>
-                  {p.id !== 'usr_carlos_admin' && (
+                  {(role === 'SUPER_ADMIN' || p.invited_by === currentUserId) && !p.convertedAt && (
                     <button
                       onClick={() => setDeleteConfirmId(p.id)}
                       className="text-[#FF3B30] hover:bg-[#FF3B30]/10 p-1.5 rounded-lg transition-colors active:scale-95"
@@ -807,16 +824,48 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[#c4c9ac] block mb-1">Rol</label>
+                  <label className="text-[#c4c9ac] block mb-1">Tipo de cuenta</label>
                   <select
-                    value={newUserRole}
-                    onChange={(e: any) => setNewUserRole(e.target.value)}
+                    value={newUserAccountType}
+                    onChange={(e: any) => setNewUserAccountType(e.target.value)}
                     className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
                   >
-                    <option value="PLAYER">Jugador</option>
-                    <option value="ADMIN">Administrador</option>
+                    <option value="USER">Usuario</option>
+                    <option value="GUEST">Invitado</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-[#c4c9ac] block mb-1">Código de invitación</label>
+                  <input
+                    type="text"
+                    placeholder="INV-XXXX-XXXX"
+                    value={newUserInvitationCode}
+                    onChange={(e) => setNewUserInvitationCode(e.target.value)}
+                    className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  />
+                </div>
+              </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[#c4c9ac] block mb-1">Rol</label>
+                    <select
+                      value={newUserRole}
+                      onChange={(e: any) => setNewUserRole(e.target.value)}
+                      className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                    >
+                      <option value="PLAYER">Jugador</option>
+                      <option value="USER">Usuario</option>
+                      {role === 'SUPER_ADMIN' && (
+                        <>
+                          <option value="ADMIN">Administrador</option>
+                          <option value="SUPER_ADMIN">Super Admin</option>
+                          <option value="BUSINESS_ADMIN">Business Admin</option>
+                          <option value="BUSINESS_MANAGER">Business Manager</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
                 <div>
                   <label className="text-[#c4c9ac] block mb-1">Nivel</label>
                   <select

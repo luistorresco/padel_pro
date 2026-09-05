@@ -70,6 +70,10 @@ export interface User {
   pointsVisibility?: 'PUBLIC' | 'PRIVATE';
   gamesVisibility?: 'PUBLIC' | 'PRIVATE';
   tournamentsVisibility?: 'PUBLIC' | 'PRIVATE';
+  invited_by?: string;
+  convertedAt?: string;
+  accountType?: 'USER' | 'GUEST';
+  invitationCode?: string;
 }
 
 export interface Pair {
