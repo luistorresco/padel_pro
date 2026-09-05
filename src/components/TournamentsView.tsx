@@ -12,6 +12,8 @@ interface TournamentsViewProps {
   onDeleteTournament?: (tourId: string) => void;
   onOpenMatch?: (matchId: string) => void;
   onGenerateBracket?: (tournamentId: string) => void;
+  onUpdateMatchDateTime?: (matchId: string, dateTime: string) => void;
+  onUpdateMatchCourt?: (matchId: string, courtId: string, courtName: string) => void;
 }
 
 export const TournamentsView: React.FC<TournamentsViewProps> = ({
@@ -25,6 +27,8 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
   onDeleteTournament,
   onOpenMatch,
   onGenerateBracket,
+  onUpdateMatchDateTime,
+  onUpdateMatchCourt,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
   const [selectedStatus, setSelectedStatus] = useState<string>('TODOS');
@@ -35,6 +39,10 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
   const [registerPairId, setRegisterPairId] = useState<string>('');
   const [registerCourtId, setRegisterCourtId] = useState<string>('');
   const [registerDateTime, setRegisterDateTime] = useState<string>('');
+  const [editingMatchDateTimeId, setEditingMatchDateTimeId] = useState<string | null>(null);
+  const [editMatchDateTimeValue, setEditMatchDateTimeValue] = useState<string>('');
+  const [editingMatchCourtId, setEditingMatchCourtId] = useState<string | null>(null);
+  const [editMatchCourtValue, setEditMatchCourtValue] = useState<string>('');
 
   // New Tournament Form
   const [newTourName, setNewTourName] = useState<string>('');
@@ -315,15 +323,19 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
       {/* Tournament Details & Bracket Modal */}
       {selectedTournament && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#1e2023] rounded-2xl p-5 border border-[#333539] max-w-lg w-full max-h-[85vh] overflow-y-auto flex flex-col gap-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#333539] pb-3">
+          <div className="bg-[#1e2023] rounded-2xl p-5 border border-[#333539] max-w-3xl w-full max-h-[85vh] overflow-y-auto flex flex-col gap-4 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#333539] pb-3">
               <div>
                 <h3 className="font-headline font-bold text-[18px] text-white">
                   {selectedTournament.name}
                 </h3>
                 <span className="text-[11px] font-mono-stats text-[#c3f400]">
-                  {selectedTournament.format} • {selectedTournament.category}
+                  {selectedTournament.format} • {selectedTournament.category} • {selectedTournament.level}
                 </span>
+                <div className="flex items-center gap-3 mt-1 text-[11px] font-mono-stats text-[#c4c9ac]">
+                  <span>📍 {selectedTournament.location}</span>
+                  <span>📅 {selectedTournament.startDate} → {selectedTournament.endDate}</span>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedTournament(null)}
@@ -333,38 +345,123 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
               </button>
             </div>
 
-            {/* Bracket & Tournament Matches Section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-headline font-bold text-[14px] text-white flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[#c3f400] text-[18px]">
-                    account_tree
-                  </span>
-                  Cuadro del Torneo y Reajuste de Llaves
-                </h4>
-                {onGenerateBracket && (
-                  <button
-                    onClick={() => onGenerateBracket(selectedTournament.id)}
-                    className="bg-[#c3f400] text-[#161e00] text-[11px] font-bold px-3 py-1.5 rounded-lg"
-                  >
-                    Generar Grupos
-                  </button>
-                )}
-              </div>
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-2">
+              {onGenerateBracket && (
+                <button
+                  onClick={() => onGenerateBracket(selectedTournament.id)}
+                  className="bg-[#c3f400] text-[#161e00] text-[11px] font-bold px-3 py-2 rounded-lg"
+                >
+                  <span className="material-symbols-outlined text-[14px] mr-1">account_tree</span>
+                  Generar Grupos
+                </button>
+              )}
+              {(selectedTournament.status === 'REGISTRATION' || selectedTournament.status === 'OPEN') && pairs.length > 0 && (
+                <button
+                  onClick={() => setRegisteringTournamentId(selectedTournament.id)}
+                  className="bg-[#282a2e] hover:bg-[#333539] text-white text-[11px] font-bold px-3 py-2 rounded-lg border border-[#333539]"
+                >
+                  <span className="material-symbols-outlined text-[14px] mr-1">person_add</span>
+                  Inscribir Pareja
+                </button>
+              )}
+              {role === 'ADMIN' && onDeleteTournament && (
+                <button
+                  onClick={() => {
+                    setSelectedTournament(null);
+                    onDeleteTournament(selectedTournament.id);
+                  }}
+                  className="bg-[#282a2e] hover:bg-[#FF3B30]/20 text-[#FF3B30] text-[11px] font-bold px-3 py-2 rounded-lg border border-[#FF3B30]/30"
+                >
+                  <span className="material-symbols-outlined text-[14px] mr-1">delete</span>
+                  Eliminar Torneo
+                </button>
+              )}
+            </div>
 
-              <div className="flex flex-col gap-2.5">
+            {/* Inscribir Pareja inline */}
+            {registeringTournamentId === selectedTournament.id && (
+              <div className="bg-[#0c0e12] p-3 rounded-xl border border-[#c3f400]/40 flex flex-col gap-2">
+                <span className="text-[#c3f400] font-bold text-[11px] uppercase">Inscribir pareja en {selectedTournament.name}</span>
+                <select
+                  value={registerPairId}
+                  onChange={(e) => setRegisterPairId(e.target.value)}
+                  className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                >
+                  <option value="">Seleccionar pareja...</option>
+                  {pairs
+                    .filter((p) => !selectedTournament.registeredPairIds.includes(p.id))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+                <select
+                  value={registerCourtId}
+                  onChange={(e) => setRegisterCourtId(e.target.value)}
+                  className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                >
+                  <option value="">Sin pista</option>
+                  {courts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.status})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="datetime-local"
+                  value={registerDateTime}
+                  onChange={(e) => setRegisterDateTime(e.target.value)}
+                  className="bg-[#111317] border border-[#333539] text-white p-2 rounded text-[11px]"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (!registerPairId) return;
+                      onRegisterPair(selectedTournament.id, registerPairId, registerCourtId, registerDateTime);
+                      setRegisteringTournamentId(null);
+                      setRegisterPairId('');
+                      setRegisterCourtId('');
+                      setRegisterDateTime('');
+                    }}
+                    className="bg-[#c3f400] text-[#161e00] px-2 py-1.5 rounded text-[11px] font-bold"
+                  >
+                    Confirmar inscripción
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRegisteringTournamentId(null);
+                      setRegisterPairId('');
+                      setRegisterCourtId('');
+                      setRegisterDateTime('');
+                    }}
+                    className="bg-[#333539] text-white px-2 py-1.5 rounded text-[11px]"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Programación de Partidos */}
+            <div>
+              <h4 className="font-headline font-bold text-[14px] text-white mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[#c3f400] text-[18px]">schedule</span>
+                Programación de Partidos
+              </h4>
+              <div className="flex flex-col gap-2">
                 {matches.filter((m) => m.tournamentId === selectedTournament.id).length === 0 ? (
                   <div className="bg-[#0c0e12] p-4 rounded-xl border border-[#333539] text-[12px] font-mono-stats text-[#8e9379] text-center">
-                    No hay partidos programados todavía para este torneo.
+                    No hay partidos programados. Inscribe parejas y genera los grupos.
                   </div>
                 ) : (
                   matches
                     .filter((m) => m.tournamentId === selectedTournament.id)
+                    .sort((a, b) => (a.dateTime || '').localeCompare(b.dateTime || ''))
                     .map((m) => {
-                      const setsWonA = m.sets.filter((s) => s.winner === 'A').length;
-                      const setsWonB = m.sets.filter((s) => s.winner === 'B').length;
-                      const winnerName = m.winnerTeam === 'A' ? m.pairAName : m.winnerTeam === 'B' ? m.pairBName : (setsWonA > setsWonB ? m.pairAName : setsWonB > setsWonA ? m.pairBName : null);
-
+                      const isEditingDateTime = editingMatchDateTimeId === m.id;
+                      const isEditingCourt = editingMatchCourtId === m.id;
                       return (
                         <div
                           key={m.id}
@@ -386,19 +483,111 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                           </div>
 
                           <div className="flex flex-col gap-1 bg-[#1e2023] p-2 rounded-lg border border-[#333539]">
-                            {/* Team A */}
                             <div className="flex items-center justify-between">
-                              <span className={`font-bold ${m.status === 'FINISHED' && (m.winnerTeam === 'A' || winnerName === m.pairAName) ? 'text-[#c3f400]' : 'text-white'}`}>
-                                {m.pairAName} {m.status === 'FINISHED' && (m.winnerTeam === 'A' || winnerName === m.pairAName) ? '🏆' : ''}
+                              <span className={`font-bold ${m.winnerTeam === 'A' ? 'text-[#c3f400]' : 'text-white'}`}>
+                                {m.pairAName}
                               </span>
-                              <span className="font-bold text-white">{setsWonA}</span>
+                              <span className="text-[11px] text-[#c4c9ac]">Pareja A</span>
                             </div>
-                            {/* Team B */}
                             <div className="flex items-center justify-between">
-                              <span className={`font-bold ${m.status === 'FINISHED' && (m.winnerTeam === 'B' || winnerName === m.pairBName) ? 'text-[#c3f400]' : 'text-white'}`}>
-                                {m.pairBName} {m.status === 'FINISHED' && (m.winnerTeam === 'B' || winnerName === m.pairBName) ? '🏆' : ''}
+                              <span className={`font-bold ${m.winnerTeam === 'B' ? 'text-[#c3f400]' : 'text-white'}`}>
+                                {m.pairBName}
                               </span>
-                              <span className="font-bold text-white">{setsWonB}</span>
+                              <span className="text-[11px] text-[#c4c9ac]">Pareja B</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 text-[11px]">
+                            <div className="flex items-center justify-between text-[#c4c9ac]">
+                              <span>Pista: <b className="text-white">{m.courtName || 'Sin asignar'}</b></span>
+                              {!isEditingCourt ? (
+                                <button
+                                  onClick={() => {
+                                    setEditingMatchCourtId(m.id);
+                                    setEditMatchCourtValue(m.courtId || '');
+                                  }}
+                                  className="text-[#c3f400] hover:underline"
+                                >
+                                  Editar pista
+                                </button>
+                              ) : (
+                                <div className="flex gap-1">
+                                  <select
+                                    value={editMatchCourtValue}
+                                    onChange={(e) => setEditMatchCourtValue(e.target.value)}
+                                    className="bg-[#111317] border border-[#333539] text-white p-1 rounded text-[10px]"
+                                  >
+                                    <option value="">Sin pista</option>
+                                    {courts.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => {
+                                      if (onUpdateMatchCourt) {
+                                        const court = courts.find((c) => c.id === editMatchCourtValue);
+                                        if (court) {
+                                          onUpdateMatchCourt(m.id, court.id, court.name);
+                                        }
+                                        setEditingMatchCourtId(null);
+                                      }
+                                    }}
+                                    className="bg-[#c3f400] text-[#161e00] px-2 py-1 rounded text-[10px] font-bold"
+                                  >
+                                    Ok
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMatchCourtId(null)}
+                                    className="bg-[#333539] text-white px-2 py-1 rounded text-[10px]"
+                                  >
+                                    X
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between text-[#c4c9ac]">
+                              <span>Fecha/Hora: <b className="text-white">{m.dateTime || 'Sin programar'}</b></span>
+                              {!isEditingDateTime ? (
+                                <button
+                                  onClick={() => {
+                                    const d = new Date(m.dateTime || '');
+                                    const localIso = isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                    setEditMatchDateTimeValue(localIso);
+                                    setEditingMatchDateTimeId(m.id);
+                                  }}
+                                  className="text-[#c3f400] hover:underline"
+                                >
+                                  Editar fecha/hora
+                                </button>
+                              ) : (
+                                <div className="flex gap-1">
+                                  <input
+                                    type="datetime-local"
+                                    value={editMatchDateTimeValue}
+                                    onChange={(e) => setEditMatchDateTimeValue(e.target.value)}
+                                    className="bg-[#111317] border border-[#333539] text-white p-1 rounded text-[10px]"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      if (onUpdateMatchDateTime) {
+                                        onUpdateMatchDateTime(m.id, editMatchDateTimeValue);
+                                        setEditingMatchDateTimeId(null);
+                                      }
+                                    }}
+                                    className="bg-[#c3f400] text-[#161e00] px-2 py-1 rounded text-[10px] font-bold"
+                                  >
+                                    Ok
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMatchDateTimeId(null)}
+                                    className="bg-[#333539] text-white px-2 py-1 rounded text-[10px]"
+                                  >
+                                    X
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -421,15 +610,14 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
               </div>
             </div>
 
-            {/* Standings Group Table */}
+            {/* Clasificación */}
             <div>
               <h4 className="font-headline font-bold text-[14px] text-white mb-2 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[#c3f400] text-[18px]">
                   table_chart
                 </span>
-                Tabla de Posiciones - Grupo A
+                Clasificación
               </h4>
-
               <div className="overflow-x-auto bg-[#0c0e12] rounded-xl border border-[#333539]">
                 <table className="w-full text-left font-mono-stats text-[11px]">
                   <thead className="bg-[#282a2e] text-[#c4c9ac] uppercase text-[10px]">
@@ -444,17 +632,19 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                   <tbody className="divide-y divide-[#333539]">
                     {(selectedTournament.registeredPairIds || []).map((pId, idx) => {
                       const p = pairs.find((pair) => pair.id === pId);
+                      const pairMatches = matches.filter((m) => m.tournamentId === selectedTournament.id && (m.pairAId === pId || m.pairBId === pId) && m.status === 'FINISHED');
+                      const wins = pairMatches.filter((m) => m.winnerPairId === pId).length;
+                      const losses = pairMatches.length - wins;
+                      const points = wins * 3;
                       return (
                         <tr key={pId} className="hover:bg-[#282a2e]/50">
-                          <td className="p-2.5 font-bold text-white truncate max-w-[120px]">
+                          <td className="p-2.5 font-bold text-white truncate max-w-[160px]">
                             {p ? p.name : `Pareja #${idx + 1}`}
                           </td>
-                          <td className="p-2.5">3</td>
-                          <td className="p-2.5 font-bold text-[#c3f400]">{3 - idx}</td>
-                          <td className="p-2.5 text-[#ffdad6]">{idx}</td>
-                          <td className="p-2.5 font-black text-[#c3f400] text-[12px]">
-                            {(3 - idx) * 3}
-                          </td>
+                          <td className="p-2.5">{pairMatches.length}</td>
+                          <td className="p-2.5 font-bold text-[#c3f400]">{wins}</td>
+                          <td className="p-2.5 text-[#ffdad6]">{losses}</td>
+                          <td className="p-2.5 font-black text-[#c3f400] text-[12px]">{points}</td>
                         </tr>
                       );
                     })}
@@ -469,10 +659,14 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                 REGLAS OFICIALES Y PUNTOS DE RANKING:
               </span>
               <ul className="list-disc list-inside text-[#c4c9ac] space-y-0.5">
-                <li>Campeón: {selectedTournament.rules.pointsDistribution.champion} pts</li>
-                <li>Finalista: {selectedTournament.rules.pointsDistribution.runnerUp} pts</li>
-                <li>Semifinalista: {selectedTournament.rules.pointsDistribution.semiFinals} pts</li>
+                <li>Sets a ganar: {selectedTournament.rules.setsToWin}</li>
                 <li>Punto de Oro: {selectedTournament.rules.goldenPoint ? 'ACTIVADO' : 'DESACTIVADO'}</li>
+                <li>Tie-break en: {selectedTournament.rules.tieBreakAt}</li>
+                <li>Campeón: {selectedTournament.rules.pointsDistribution?.champion ?? 0} pts</li>
+                <li>Finalista: {selectedTournament.rules.pointsDistribution?.runnerUp ?? 0} pts</li>
+                <li>Semifinalista: {selectedTournament.rules.pointsDistribution?.semiFinals ?? 0} pts</li>
+                <li>Cuartos: {selectedTournament.rules.pointsDistribution?.quarterFinals ?? 0} pts</li>
+                <li>Fase de grupos: {selectedTournament.rules.pointsDistribution?.groupStage ?? 0} pts</li>
               </ul>
             </div>
           </div>

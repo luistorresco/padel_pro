@@ -132,12 +132,17 @@ class CreateMatchUseCase:
 
     def execute(self, match_data):
         from domain.entities.match import Match
+        date_time = match_data.get("date_time") or match_data.get("dateTime")
+        if date_time:
+            date_time = str(date_time).replace("T", " ").replace("Z", "")
+            if len(date_time) == 16:
+                date_time = date_time + ":00"
         m = Match(
             match_id=match_data["id"],
             tournament_id=match_data.get("tournament_id"),
             pair_a_id=match_data.get("pair_a_id") or match_data.get("pairAId"),
             pair_b_id=match_data.get("pair_b_id") or match_data.get("pairBId"),
-            date_time=match_data.get("date_time") or match_data.get("dateTime"),
+            date_time=date_time,
             status=match_data.get("status", "SCHEDULED"),
             court_id=match_data.get("court_id") or match_data.get("courtId"),
             round_id=match_data.get("round_id") or match_data.get("roundId"),

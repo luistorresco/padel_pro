@@ -236,6 +236,10 @@ class RegisterForTournamentUseCase:
         user_id = body.get("userId") or body.get("user_id")
         court_id = body.get("courtId") or body.get("court_id")
         date_time = body.get("dateTime") or body.get("date_time")
+        if date_time:
+            date_time = str(date_time).replace("T", " ").replace("Z", "")
+            if len(date_time) == 16:
+                date_time = date_time + ":00"
 
         if pair_id:
             self.tournament_repo.register_pair(tournament_id, pair_id)

@@ -943,6 +943,8 @@ export default function App() {
                     setActiveTab('matches');
                   }}
                   onGenerateBracket={handleGenerateBracket}
+                  onUpdateMatchDateTime={handleUpdateMatchDateTime}
+                  onUpdateMatchCourt={handleUpdateMatchCourt}
                 />
               )}
 

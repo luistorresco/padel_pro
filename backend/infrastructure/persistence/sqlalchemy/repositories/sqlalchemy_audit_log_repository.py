@@ -43,9 +43,9 @@ class SQLAlchemyAuditLogRepository(IAuditLogRepository):
                 details = None
         return AuditLog(
             log_id=row["id"],
-            action=row["action"],
-            target_type=row["target_type"],
-            target_id=row["target_id"],
+            action=row.get("action", ""),
+            target_type=row.get("target_type", "unknown"),
+            target_id=row.get("target_id", ""),
             business_id=row.get("business_id"),
             user_id=row.get("user_id"),
             details=details,
