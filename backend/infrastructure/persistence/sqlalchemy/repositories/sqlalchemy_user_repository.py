@@ -227,6 +227,27 @@ class SQLAlchemyUserRepository(IUserRepository):
                 return None
             return self._to_entity(dict(row))
 
+    def find_pair_with_players(self, pair_id: str) -> Optional[Dict]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT p.id, p.name, p.player1_id, p.player2_id, p.created_by, p.status,
+                       p.tournaments_disputed, p.titles_won
+                FROM pairs p
+                WHERE p.id = :pid
+            """), {"pid": pair_id}).mappings().first()
+            if not row:
+                return None
+            return dict(row)
+
+    def find_tournament_rules(self, tournament_id: str) -> Optional[Dict]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT id, rules FROM tournaments WHERE id = :tid
+            """), {"tid": tournament_id}).mappings().first()
+            if not row:
+                return None
+            return dict(row)
+
     def _to_entity(self, row: dict) -> User:
         return User(
             user_id=row["id"],

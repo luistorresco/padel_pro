@@ -73,3 +73,11 @@ class IUserRepository(ABC):
     @abstractmethod
     def update_privacy(self, user_id: str, privacy_data: Dict) -> None:
         pass
+
+    @abstractmethod
+    def find_pair_with_players(self, pair_id: str) -> Optional[Dict]:
+        pass
+
+    @abstractmethod
+    def find_tournament_rules(self, tournament_id: str) -> Optional[Dict]:
+        pass

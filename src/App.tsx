@@ -323,13 +323,6 @@ export default function App() {
       const loserPairId = isWinnerA ? updatedMatch.pairBId : updatedMatch.pairAId;
       const loserPairName = isWinnerA ? updatedMatch.pairBName : updatedMatch.pairAName;
 
-      const winnerPlayerIds = isWinnerA
-        ? [updatedMatch.playerA1Id, updatedMatch.playerA2Id]
-        : [updatedMatch.playerB1Id, updatedMatch.playerB2Id];
-      const loserPlayerIds = isWinnerA
-        ? [updatedMatch.playerB1Id, updatedMatch.playerB2Id]
-        : [updatedMatch.playerA1Id, updatedMatch.playerA2Id];
-
       const winnerPlayer1 = isWinnerA
         ? { id: updatedMatch.playerA1Id, name: updatedMatch.playerA1Name, avatar: updatedMatch.playerA1Avatar }
         : { id: updatedMatch.playerB1Id, name: updatedMatch.playerB1Name, avatar: updatedMatch.playerB1Avatar };
@@ -337,36 +330,18 @@ export default function App() {
         ? { id: updatedMatch.playerA2Id, name: updatedMatch.playerA2Name, avatar: updatedMatch.playerA2Avatar }
         : { id: updatedMatch.playerB2Id, name: updatedMatch.playerB2Name, avatar: updatedMatch.playerB2Avatar };
 
-      const notificationBody = `¡Victoria para ${winnerPairName}! Se han otorgado +150 pts de ranking y la pareja avanza en el torneo.`;
-
-      const finishBody = {
-        winner_team: isWinnerA ? 'A' : 'B',
-        create_notification: true,
-        notification: {
-          id: 'notif_' + Date.now(),
-          title: '🏆 ¡Partido Finalizado y Torneo Reajustado!',
-          body: notificationBody,
-          timestamp: 'Ahora',
-          read: false,
-          type: 'MATCH',
-          linkId: updatedMatch.id,
-        },
-        create_audit: true,
-        audit: {
-          id: 'audit_' + Date.now(),
-          adminName: user.name + ' ' + user.surname,
-          adminEmail: user.email,
-          action: 'PARTIDO_FINALIZADO',
-          target: `Partido ${updatedMatch.id} (${updatedMatch.roundName || 'Eliminatoria'})`,
-          details: `Ganador: ${winnerPairName} vs ${loserPairName}. Puntos asignados en ranking y cuadro reajustado.`,
-          timestamp: new Date().toLocaleString(),
-        },
-      };
+      let finishSummary: any = {};
 
       try {
-        await api.finishMatch(updatedMatch.id, finishBody as unknown as Record<string, unknown>);
+        const res = await api.finishMatch(updatedMatch.id, {
+          winner_team: isWinnerA ? 'A' : 'B',
+          winnerPairId,
+        } as unknown as Record<string, unknown>);
+        if (res && typeof res === 'object' && 'json' in res) {
+          finishSummary = await res.json();
+        }
       } catch (error) {
-        console.error('[App] Failed to finish match via API, applying local fallback.', error);
+        console.error('[App] Failed to finish match via API.', error);
       }
 
       const [usersAfter, pairsAfter, tournamentsAfter, matchesAfter] = await Promise.all([
@@ -482,10 +457,13 @@ export default function App() {
 
       setMatches(refreshedMatches);
 
+      const pointsAwarded = finishSummary.pointsAwarded || 150;
+      const reason = finishSummary.reason || 'match_win';
+
       const newNotif: NotificationItem = {
         id: 'notif_' + Date.now(),
         title: '🏆 ¡Partido Finalizado y Torneo Reajustado!',
-        body: notificationBody,
+        body: `¡Victoria para ${winnerPairName}! Se han otorgado +${pointsAwarded} pts de ranking (${reason}) y la pareja avanza en el torneo.`,
         timestamp: 'Ahora',
         read: false,
         type: 'MATCH',
@@ -539,9 +517,7 @@ export default function App() {
     api.updateMatch(updatedMatch.id, updatedMatch as unknown as Record<string, unknown>).catch((error) => {
       console.error('[App] Failed to update match via API.', error);
     });
-  };
-
-  const handleCreateTournament = async (newTour: Tournament) => {
+  };  const handleCreateTournament = async (newTour: Tournament) => {
     setTournaments((prev) => [newTour, ...prev]);
     const newAudit: AuditLog = {
       id: 'audit_' + Date.now(),
