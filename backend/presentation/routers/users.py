@@ -45,7 +45,7 @@ def get_current_user_me(authorization: Optional[str] = Header(None)):
             user_id = payload.get("sub")
             if user_id:
                 try:
-                    return get_user_uc.execute(user_id)
+                    return get_user_uc.execute(user_id, viewer_is_self=True)
                 except Exception as e:
                     raise HTTPException(status_code=404, detail=str(e))
     raise HTTPException(status_code=401, detail="Not authenticated")

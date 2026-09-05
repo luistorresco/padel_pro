@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tournament, Pair, UserRole, Match, Court } from '../types';
 
 interface TournamentsViewProps {

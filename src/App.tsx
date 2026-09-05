@@ -337,11 +337,6 @@ export default function App() {
         ? { id: updatedMatch.playerA2Id, name: updatedMatch.playerA2Name, avatar: updatedMatch.playerA2Avatar }
         : { id: updatedMatch.playerB2Id, name: updatedMatch.playerB2Name, avatar: updatedMatch.playerB2Avatar };
 
-      const setsWonA = updatedMatch.sets.filter((s) => s.winner === 'A').length;
-      const setsWonB = updatedMatch.sets.filter((s) => s.winner === 'B').length;
-      const gamesWonA = updatedMatch.sets.reduce((sum, s) => sum + (s.teamAGames || 0), 0);
-      const gamesWonB = updatedMatch.sets.reduce((sum, s) => sum + (s.teamBGames || 0), 0);
-
       const notificationBody = `¡Victoria para ${winnerPairName}! Se han otorgado +150 pts de ranking y la pareja avanza en el torneo.`;
 
       const finishBody = {
@@ -384,10 +379,11 @@ export default function App() {
       setPlayers(usersAfter as User[]);
       setPairs(pairsAfter as Pair[]);
       setTournaments(tournamentsAfter as Tournament[]);
-      setMatches((matchesAfter as Match[]).map((m) => ({
+
+      let refreshedMatches = (matchesAfter as Match[]).map((m) => ({
         ...m,
         currentGame: m.currentGame || createInitialGameScore('A'),
-      })));
+      }));
 
       const updatedUser = (usersAfter as User[]).find((u) => u.id === user.id);
       if (updatedUser) {
@@ -397,7 +393,6 @@ export default function App() {
 
       if (updatedMatch.tournamentId) {
         const tourId = updatedMatch.tournamentId;
-        const tourMatches = nextMatchesList.filter((m) => m.tournamentId === tourId);
 
         let targetRoundName = 'Semifinal';
         if (updatedMatch.roundName === 'Cuartos de Final') {
@@ -411,12 +406,13 @@ export default function App() {
             prevTours.map((t) => (t.id === tourId ? { ...t, status: 'FINISHED' } : t))
           );
         } else {
+          const tourMatches = refreshedMatches.filter((m) => m.tournamentId === tourId);
           let nextRoundMatch = tourMatches.find(
             (m) => m.roundName === targetRoundName && m.status === 'UPCOMING'
           );
 
           if (nextRoundMatch) {
-            nextMatchesList = nextMatchesList.map((m) => {
+            refreshedMatches = refreshedMatches.map((m) => {
               if (m.id === nextRoundMatch!.id) {
                 if (!m.pairAId || m.pairAId === 'pair_tbd' || m.pairAName.includes('Por Definir')) {
                   return {
@@ -479,10 +475,12 @@ export default function App() {
               setsToWin: 2,
               roundName: targetRoundName,
             };
-            nextMatchesList = [newNextMatch, ...nextMatchesList];
+            refreshedMatches = [newNextMatch, ...refreshedMatches];
           }
         }
       }
+
+      setMatches(refreshedMatches);
 
       const newNotif: NotificationItem = {
         id: 'notif_' + Date.now(),
@@ -505,9 +503,9 @@ export default function App() {
         timestamp: new Date().toLocaleString(),
       };
       setAuditLogs((prev) => [finishAudit, ...prev]);
+    } else {
+      setMatches(nextMatchesList);
     }
-
-    setMatches(nextMatchesList);
 
     if (newEvent) {
       const newAudit: AuditLog = {
@@ -570,7 +568,20 @@ export default function App() {
         return { ...t, registeredPairIds, courtIds };
       })
     );
-    await api.registerPairForTournament(tournamentId, pairId, courtId, dateTime);
+    try {
+      await api.registerPairForTournament(tournamentId, pairId, courtId, dateTime);
+      const updatedMatches = await api.getMatches();
+      if (updatedMatches) {
+        setMatches((updatedMatches as Match[]).map((m) => ({
+          ...m,
+          currentGame: m.currentGame || createInitialGameScore('A'),
+        })));
+      }
+      alert('Pareja inscrita correctamente');
+    } catch (error) {
+      console.error('[App] Failed to register pair for tournament.', error);
+      alert('No se pudo inscribir la pareja en el servidor.');
+    }
   };
 
   const handleGenerateBracket = async (tournamentId: string) => {

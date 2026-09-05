@@ -40,7 +40,15 @@ class ListUsersUseCase:
                 "position": position,
                 "dominant_hand": dominant_hand,
                 "points": user.points or 0,
-                "stats": {},
+                "stats": {
+                    "matchesPlayed": getattr(user, 'matches_played', 0) or 0,
+                    "matchesWon": getattr(user, 'matches_won', 0) or 0,
+                    "matchesLost": getattr(user, 'matches_lost', 0) or 0,
+                    "setsWon": getattr(user, 'sets_won', 0) or 0,
+                    "setsLost": getattr(user, 'sets_lost', 0) or 0,
+                    "gamesWon": getattr(user, 'games_won', 0) or 0,
+                    "gamesLost": getattr(user, 'games_lost', 0) or 0,
+                },
                 "role": role,
                 "account_type": user.account_type or "USER",
                 "status": user.status or "ACTIVE",
@@ -52,8 +60,15 @@ class ListUsersUseCase:
                 "phone": None,
                 "current_pair_id": None,
                 "partner_name": None,
+                "matches_played": getattr(user, 'matches_played', 0) or 0,
+                "matches_won": getattr(user, 'matches_won', 0) or 0,
+                "matches_lost": getattr(user, 'matches_lost', 0) or 0,
+                "sets_won": getattr(user, 'sets_won', 0) or 0,
+                "sets_lost": getattr(user, 'sets_lost', 0) or 0,
+                "games_won": getattr(user, 'games_won', 0) or 0,
+                "games_lost": getattr(user, 'games_lost', 0) or 0,
             }
-            result.append(self.privacy_service.apply_user_privacy(resp, pv, viewer_is_self=False))
+            result.append(self.privacy_service.apply_user_privacy(resp, pv, viewer_is_self=(user.id == current_user_id)))
         return result
 
 
@@ -62,7 +77,7 @@ class GetUserUseCase:
         self.user_repo = user_repo
         self.privacy_service = privacy_service
 
-    def execute(self, user_id):
+    def execute(self, user_id, viewer_is_self: bool = False):
         user = self.user_repo.find_with_role(user_id)
         if not user:
             raise EntityNotFound("User not found")
@@ -89,7 +104,15 @@ class GetUserUseCase:
             "position": position,
             "dominant_hand": dominant_hand,
             "points": user.get("points") or 0,
-            "stats": {},
+            "stats": {
+                "matchesPlayed": user.get("matches_played") or 0,
+                "matchesWon": user.get("matches_won") or 0,
+                "matchesLost": user.get("matches_lost") or 0,
+                "setsWon": user.get("sets_won") or 0,
+                "setsLost": user.get("sets_lost") or 0,
+                "gamesWon": user.get("games_won") or 0,
+                "gamesLost": user.get("games_lost") or 0,
+            },
             "role": user.get("role_name") or "PLAYER",
             "account_type": user.get("account_type") or "USER",
             "status": user.get("status") or "ACTIVE",
@@ -101,8 +124,15 @@ class GetUserUseCase:
             "phone": None,
             "current_pair_id": None,
             "partner_name": None,
+            "matches_played": user.get("matches_played") or 0,
+            "matches_won": user.get("matches_won") or 0,
+            "matches_lost": user.get("matches_lost") or 0,
+            "sets_won": user.get("sets_won") or 0,
+            "sets_lost": user.get("sets_lost") or 0,
+            "games_won": user.get("games_won") or 0,
+            "games_lost": user.get("games_lost") or 0,
         }
-        return self.privacy_service.apply_user_privacy(resp, pv, viewer_is_self=False)
+        return self.privacy_service.apply_user_privacy(resp, pv, viewer_is_self=viewer_is_self)
 
 
 class CreateUserUseCase:
