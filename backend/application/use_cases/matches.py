@@ -488,6 +488,11 @@ class GenerateBracketUseCase:
         golden_point = rules.get("goldenPoint") or rules.get("golden_point") or False
         sets_to_win = rules.get("setsToWin") or rules.get("sets_to_win") or 2
 
+        start_date = t.start_date if isinstance(t.start_date, str) else (t.start_date.isoformat() if t.start_date else None)
+        placeholder_date = start_date if start_date else "1970-01-01 00:00:00"
+        if len(placeholder_date) == 10:
+            placeholder_date = placeholder_date + " 00:00:00"
+
         matches = []
         n = len(pair_ids)
         if n >= 2:
@@ -500,7 +505,7 @@ class GenerateBracketUseCase:
                         tournament_id=tournament_id,
                         pair_a_id=pair_ids[i],
                         pair_b_id=pair_ids[i + 1],
-                        date_time=None,
+                        date_time=placeholder_date,
                         status="SCHEDULED",
                         court_id=None,
                         round_id=None,
