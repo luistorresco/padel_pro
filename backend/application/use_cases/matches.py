@@ -494,21 +494,30 @@ class GenerateBracketUseCase:
             for i in range(0, n, 2):
                 if i + 1 < n:
                     match_id = f"match_{tournament_id}_round_{i // 2}"
-                    match = type('Match', (), {})()
-                    match.id = match_id
-                    match.tournament_id = tournament_id
-                    match.pair_a_id = pair_ids[i]
-                    match.pair_b_id = pair_ids[i + 1]
-                    match.round_name = "Grupos"
-                    match.date_time = None
-                    match.status = "SCHEDULED"
-                    match.court_id = None
-                    match.sets = []
-                    match.current_set_index = 0
-                    match.winner_pair_id = None
-                    match.winner_team = None
-                    match.golden_point = golden_point
-                    match.sets_to_win = sets_to_win
+                    from domain.entities.match import Match
+                    match = Match(
+                        match_id=match_id,
+                        tournament_id=tournament_id,
+                        pair_a_id=pair_ids[i],
+                        pair_b_id=pair_ids[i + 1],
+                        date_time=None,
+                        status="SCHEDULED",
+                        court_id=None,
+                        round_id=None,
+                        business_id=None,
+                        created_by="",
+                        visibility="PRIVATE",
+                        sets=[],
+                        current_set_index=0,
+                        winner_pair_id=None,
+                        winner_team=None,
+                        start_time_ms=None,
+                        elapsed_time_sec=0,
+                        golden_point=golden_point,
+                        sets_to_win=sets_to_win,
+                        round_name="Grupos",
+                        deleted_at=None,
+                    )
                     matches.append(match)
 
         for match in matches:
