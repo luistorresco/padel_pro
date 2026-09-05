@@ -273,9 +273,24 @@ export default function App() {
   }, []);
 
   // Active Live Match
-  const activeLiveMatch = matches.find((m) => m.status === 'LIVE');
+  const activeLiveMatch = matches.find((m) => {
+    if (m.status !== 'LIVE') return false;
+    const now = Date.now();
+    const matchTime = new Date(m.dateTime || '').getTime();
+    const elapsed = (m.elapsedTimeSec || 0) * 1000;
+    const maxLiveWindow = 4 * 60 * 60 * 1000;
+    if (matchTime && now - matchTime > maxLiveWindow && !elapsed) return false;
+    if (matchTime && now - matchTime > maxLiveWindow && elapsed > maxLiveWindow) return false;
+    return true;
+  });
   const liveCount = matches.filter((m) => m.status === 'LIVE').length;
-  const nextUpcomingMatch = matches.find((m) => m.status === 'UPCOMING');
+  const nextUpcomingMatch = matches.find((m) => {
+    if (!['UPCOMING', 'SCHEDULED'].includes(m.status)) return false;
+    const now = Date.now();
+    const matchTime = new Date(m.dateTime || '').getTime();
+    if (matchTime && matchTime < now - 60 * 60 * 1000) return false;
+    return true;
+  });
 
   // Handlers
   const handleToggleRole = () => {
@@ -869,7 +884,13 @@ export default function App() {
 
                       <div className="flex flex-col gap-2">
                       {matches
-                        .filter((m) => ['UPCOMING', 'SCHEDULED'].includes(m.status))
+                        .filter((m) => {
+                          if (!['UPCOMING', 'SCHEDULED'].includes(m.status)) return false;
+                          const now = Date.now();
+                          const matchTime = new Date(m.dateTime || '').getTime();
+                          if (matchTime && matchTime < now - 60 * 60 * 1000) return false;
+                          return true;
+                        })
                         .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
                         .slice(0, 3)
                         .map((m) => (
