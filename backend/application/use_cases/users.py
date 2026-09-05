@@ -104,11 +104,12 @@ class CreateUserUseCase:
 
     def execute(self, user_data):
         from domain.entities.user import User
+        username = user_data.get("username") or (user_data.get("email") or "").split("@")[0] or f"user_{user_data['id']}"
         user = User(
             user_id=user_data["id"],
             name=user_data["name"],
             surname=user_data.get("surname", ""),
-            username=user_data["username"],
+            username=username,
             email=user_data.get("email"),
             avatar=user_data.get("avatar"),
             account_type="USER",
@@ -121,7 +122,7 @@ class CreateUserUseCase:
         self.user_repo.save(user)
         if user_data.get("email"):
             hashed = self.auth_service.hash_password(user_data.get("password") or "password")
-            self.user_repo.create_auth(user["id"], user_data["email"], hashed)
+            self.user_repo.create_auth(user.id, user_data["email"], hashed)
         return user_data
 
 
@@ -170,3 +171,12 @@ class DeleteUserUseCase:
         except Exception:
             self.user_repo.hard_delete(user_id)
             return {"message": "User deleted"}
+
+
+class UpdateUserPrivacyUseCase:
+    def __init__(self, user_repo):
+        self.user_repo = user_repo
+
+    def execute(self, user_id, privacy_data):
+        self.user_repo.update_privacy(user_id, privacy_data)
+        return {"status": "updated"}

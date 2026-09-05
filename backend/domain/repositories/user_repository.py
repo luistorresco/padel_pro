@@ -61,3 +61,7 @@ class IUserRepository(ABC):
     @abstractmethod
     def find_with_role(self, user_id: str) -> Optional[Dict]:
         pass
+
+    @abstractmethod
+    def update_privacy(self, user_id: str, privacy_data: Dict) -> None:
+        pass

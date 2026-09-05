@@ -66,6 +66,10 @@ export interface User {
   stats: PlayerStats;
   partnerName?: string;
   phone?: string;
+  profileVisibility?: 'PUBLIC' | 'PRIVATE';
+  pointsVisibility?: 'PUBLIC' | 'PRIVATE';
+  gamesVisibility?: 'PUBLIC' | 'PRIVATE';
+  tournamentsVisibility?: 'PUBLIC' | 'PRIVATE';
 }
 
 export interface Pair {

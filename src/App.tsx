@@ -961,6 +961,7 @@ export default function App() {
                       await api.updateUser(updated.id, updated as unknown as Record<string, unknown>);
                     }
                   }}
+                  authToken={session?.token || null}
                 />
               )}
 

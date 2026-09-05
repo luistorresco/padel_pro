@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { User } from '../types';
+import { api } from '../api';
 
 interface PlayerProfileViewProps {
   player: User;
   onUpdateProfile?: (updatedPlayer: User) => void;
+  authToken?: string | null;
 }
 
 export const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({
   player,
   onUpdateProfile,
+  authToken,
 }) => {
   const [activeTab, setActiveTab] = useState<'RESUMEN' | 'OFENSIVAS' | 'DEFENSIVAS' | 'FISICAS'>('RESUMEN');
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -165,6 +168,52 @@ export const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({
           </button>
         </form>
       )}
+
+      {/* Privacy Settings Card */}
+      <div className="bg-[#1e2023] rounded-2xl p-5 border border-[#333539] flex flex-col gap-3 shadow-xl">
+        <h3 className="font-headline font-bold text-[16px] text-white flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#c3f400] text-[20px]">lock</span>
+          Privacidad
+        </h3>
+        <p className="text-[11px] text-[#c4c9ac] font-mono-stats">
+          Controla qué información es visible para otros usuarios.
+        </p>
+        <div className="flex flex-col gap-2 font-mono-stats text-[12px]">
+          {([
+            { key: 'profileVisibility', label: 'Perfil', value: player.profileVisibility || 'PUBLIC' },
+            { key: 'pointsVisibility', label: 'Puntos', value: player.pointsVisibility || 'PUBLIC' },
+            { key: 'gamesVisibility', label: 'Partidos', value: player.gamesVisibility || 'PUBLIC' },
+            { key: 'tournamentsVisibility', label: 'Torneos', value: player.tournamentsVisibility || 'PUBLIC' },
+          ] as const).map((item) => (
+            <div key={item.key} className="flex items-center justify-between bg-[#282a2e] p-3 rounded-lg border border-[#333539]">
+              <span className="text-white font-bold">{item.label}</span>
+                <button
+                  onClick={async () => {
+                    const newValue = item.value === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+                    await fetch(`/api/users/${player.id}/privacy`, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+                      },
+                      body: JSON.stringify({ [item.key]: newValue }),
+                    });
+                    if (onUpdateProfile) {
+                      onUpdateProfile({ ...player, [item.key]: newValue } as User);
+                    }
+                  }}
+                className={`px-3 py-1.5 rounded-lg font-bold text-[11px] border ${
+                  item.value === 'PUBLIC'
+                    ? 'bg-[#c3f400] text-[#161e00] border-[#c3f400]'
+                    : 'bg-[#FF3B30] text-white border-[#FF3B30]'
+                }`}
+              >
+                {item.value === 'PUBLIC' ? 'Público' : 'Privado'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Stats Category Tabs */}
       <div className="flex gap-1.5 bg-[#1e2023] p-1.5 rounded-xl border border-[#333539] text-[11px] font-mono-stats font-bold">

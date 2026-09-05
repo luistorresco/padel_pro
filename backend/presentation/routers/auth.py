@@ -3,7 +3,7 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, Header, Body
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from presentation.deps_module import (
     login_uc,
@@ -28,6 +28,7 @@ class RegisterRequest(BaseModel):
     surname: str = ""
     username: str = ""
     role: str = "PLAYER"
+    stats: Dict[str, Any] | None = None
 
 
 class TokenResponse(BaseModel):

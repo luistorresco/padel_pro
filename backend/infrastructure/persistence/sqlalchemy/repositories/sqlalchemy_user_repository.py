@@ -144,6 +144,24 @@ class SQLAlchemyUserRepository(IUserRepository):
                 return None
             return dict(row)
 
+    def update_privacy(self, user_id: str, privacy_data: Dict) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO privacy_settings (user_id, profile_visibility, points_visibility, games_visibility, tournaments_visibility)
+                VALUES (:user_id, :profile_visibility, :points_visibility, :games_visibility, :tournaments_visibility)
+                ON DUPLICATE KEY UPDATE
+                    profile_visibility = VALUES(profile_visibility),
+                    points_visibility = VALUES(points_visibility),
+                    games_visibility = VALUES(games_visibility),
+                    tournaments_visibility = VALUES(tournaments_visibility)
+            """), {
+                "user_id": user_id,
+                "profile_visibility": privacy_data.get("profile_visibility", "PUBLIC"),
+                "points_visibility": privacy_data.get("points_visibility", "PUBLIC"),
+                "games_visibility": privacy_data.get("games_visibility", "PUBLIC"),
+                "tournaments_visibility": privacy_data.get("tournaments_visibility", "PUBLIC"),
+            })
+
     def save(self, user: User) -> User:
         with self.engine.begin() as conn:
             conn.execute(text("""
