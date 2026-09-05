@@ -8,7 +8,7 @@ from infrastructure.container import container
 from application.use_cases.auth import LoginUseCase, RegisterUseCase, GetCurrentUserUseCase
 from application.use_cases.users import ListUsersUseCase, GetUserUseCase, CreateUserUseCase, UpdateUserUseCase, DeleteUserUseCase, UpdateUserPrivacyUseCase, ConvertGuestUseCase
 from application.use_cases.tournaments import ListTournamentsUseCase, GetTournamentUseCase, GetTournamentFullUseCase, CreateTournamentUseCase, UpdateTournamentUseCase, DeleteTournamentUseCase, RegisterForTournamentUseCase
-from application.use_cases.matches import ListMatchesUseCase, GetMatchUseCase, GetMatchPlayersUseCase, CreateMatchUseCase, UpdateMatchCourtUseCase, FinishMatchUseCase, CreateMatchEventUseCase, DeleteMatchUseCase
+from application.use_cases.matches import ListMatchesUseCase, GetMatchUseCase, GetMatchPlayersUseCase, CreateMatchUseCase, UpdateMatchCourtUseCase, UpdateMatchDateTimeUseCase, FinishMatchUseCase, CreateMatchEventUseCase, DeleteMatchUseCase, GenerateBracketUseCase
 from application.use_cases.pairs import ListPairsUseCase, GetPairUseCase, CreatePairUseCase, DeletePairUseCase
 from application.use_cases.courts import ListCourtsUseCase, GetCourtUseCase, CreateCourtUseCase, UpdateCourtUseCase, DeleteCourtUseCase
 from application.use_cases.notifications import ListNotificationsUseCase, CreateNotificationUseCase
@@ -48,9 +48,11 @@ get_match_uc = GetMatchUseCase(container.match_repo)
 get_match_players_uc = GetMatchPlayersUseCase(container.match_repo)
 create_match_uc = CreateMatchUseCase(container.match_repo)
 update_match_court_uc = UpdateMatchCourtUseCase(container.match_repo)
-finish_match_uc = FinishMatchUseCase(container.match_repo)
+update_match_date_time_uc = UpdateMatchDateTimeUseCase(container.match_repo)
+finish_match_uc = FinishMatchUseCase(container.match_repo, container.user_repo, container.user_points_repo, container.pair_repo)
 create_match_event_uc = CreateMatchEventUseCase(container.match_event_repo)
 delete_match_uc = DeleteMatchUseCase(container.match_repo)
+generate_bracket_uc = GenerateBracketUseCase(container.tournament_repo, container.match_repo, container.pair_repo)
 
 list_pairs_uc = ListPairsUseCase(container.pair_repo)
 get_pair_uc = GetPairUseCase(container.pair_repo)

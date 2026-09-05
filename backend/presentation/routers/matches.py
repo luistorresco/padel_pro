@@ -10,6 +10,7 @@ from presentation.deps_module import (
     get_match_players_uc,
     create_match_uc,
     update_match_court_uc,
+    update_match_date_time_uc,
     finish_match_uc,
     create_match_event_uc,
     delete_match_uc,
@@ -103,6 +104,16 @@ def create_match(match: dict, payload: dict = Depends(require_admin)):
 def update_match_court(match_id: str, body: dict):
     try:
         return update_match_court_uc.execute(match_id, body)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@matches_router.put("/{match_id}/datetime")
+def update_match_datetime(match_id: str, body: dict):
+    try:
+        return update_match_date_time_uc.execute(match_id, body)
     except Exception as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))

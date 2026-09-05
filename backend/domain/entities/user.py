@@ -22,6 +22,13 @@ class User:
         deleted_at: str | None = None,
         created_at: str | None = None,
         updated_at: str | None = None,
+        matches_played: int = 0,
+        matches_won: int = 0,
+        matches_lost: int = 0,
+        sets_won: int = 0,
+        sets_lost: int = 0,
+        games_won: int = 0,
+        games_lost: int = 0,
     ):
         self.id = user_id
         self.name = name
@@ -41,3 +48,10 @@ class User:
         self.deleted_at = deleted_at
         self.created_at = created_at
         self.updated_at = updated_at
+        self.matches_played = matches_played
+        self.matches_won = matches_won
+        self.matches_lost = matches_lost
+        self.sets_won = sets_won
+        self.sets_lost = sets_lost
+        self.games_won = games_won
+        self.games_lost = games_lost

@@ -11,6 +11,7 @@ interface TournamentsViewProps {
   onRegisterPair: (tournamentId: string, pairId: string, courtId: string, dateTime: string) => void;
   onDeleteTournament?: (tourId: string) => void;
   onOpenMatch?: (matchId: string) => void;
+  onGenerateBracket?: (tournamentId: string) => void;
 }
 
 export const TournamentsView: React.FC<TournamentsViewProps> = ({
@@ -23,6 +24,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
   onRegisterPair,
   onDeleteTournament,
   onOpenMatch,
+  onGenerateBracket,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
   const [selectedStatus, setSelectedStatus] = useState<string>('TODOS');
@@ -40,6 +42,17 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
   const [newTourLvl, setNewTourLvl] = useState<'Principiante' | 'Intermedio' | 'Avanzado' | 'Profesional'>('Intermedio');
   const [newTourLocation, setNewTourLocation] = useState<string>('Club Central Pádel');
   const [newTourFormat, setNewTourFormat] = useState<any>('Grupos + eliminación directa');
+  const [newTourStartDate, setNewTourStartDate] = useState<string>('');
+  const [newTourEndDate, setNewTourEndDate] = useState<string>('');
+  const [newTourSetsToWin, setNewTourSetsToWin] = useState<number>(2);
+  const [newTourGoldenPoint, setNewTourGoldenPoint] = useState<boolean>(true);
+  const [newTourTieBreakAt, setNewTourTieBreakAt] = useState<number>(6);
+  const [newTourFinalSetTieBreak, setNewTourFinalSetTieBreak] = useState<boolean>(true);
+  const [newTourPointsChampion, setNewTourPointsChampion] = useState<number>(1000);
+  const [newTourPointsRunnerUp, setNewTourPointsRunnerUp] = useState<number>(600);
+  const [newTourPointsSemiFinals, setNewTourPointsSemiFinals] = useState<number>(360);
+  const [newTourPointsQuarterFinals, setNewTourPointsQuarterFinals] = useState<number>(180);
+  const [newTourPointsGroupStage, setNewTourPointsGroupStage] = useState<number>(90);
 
   const filteredTournaments = tournaments.filter((t) => {
     if (selectedCategory !== 'TODAS' && t.category !== selectedCategory) return false;
@@ -51,6 +64,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
     e.preventDefault();
     if (!newTourName.trim()) return;
 
+    const today = new Date().toISOString().split('T')[0];
     const newTour: Tournament = {
       id: 'tour_' + Date.now(),
       name: newTourName,
@@ -59,19 +73,25 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
       category: newTourCat,
       level: newTourLvl,
       location: newTourLocation,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0],
+      startDate: newTourStartDate || today,
+      endDate: newTourEndDate || new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0],
       status: 'REGISTRATION',
       format: newTourFormat,
       maxPairs: 16,
       registeredPairIds: [],
       registeredUserIds: [],
       rules: {
-        setsToWin: 2,
-        goldenPoint: true,
-        tieBreakAt: 6,
-        finalSetTieBreak: true,
-        pointsDistribution: { champion: 1000, runnerUp: 600, semiFinals: 360, quarterFinals: 180, groupStage: 90 },
+        setsToWin: newTourSetsToWin,
+        goldenPoint: newTourGoldenPoint,
+        tieBreakAt: newTourTieBreakAt,
+        finalSetTieBreak: newTourFinalSetTieBreak,
+        pointsDistribution: {
+          champion: newTourPointsChampion,
+          runnerUp: newTourPointsRunnerUp,
+          semiFinals: newTourPointsSemiFinals,
+          quarterFinals: newTourPointsQuarterFinals,
+          groupStage: newTourPointsGroupStage,
+        },
       },
       courtIds: ['crt_central', 'crt_2'],
     };
@@ -79,6 +99,13 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
     onCreateTournament(newTour);
     setShowCreateModal(false);
     setNewTourName('');
+    setNewTourStartDate('');
+    setNewTourEndDate('');
+    setNewTourPointsChampion(1000);
+    setNewTourPointsRunnerUp(600);
+    setNewTourPointsSemiFinals(360);
+    setNewTourPointsQuarterFinals(180);
+    setNewTourPointsGroupStage(90);
   };
 
   return (
@@ -308,12 +335,22 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
 
             {/* Bracket & Tournament Matches Section */}
             <div>
-              <h4 className="font-headline font-bold text-[14px] text-white mb-2 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[#c3f400] text-[18px]">
-                  account_tree
-                </span>
-                Cuadro del Torneo y Reajuste de Llaves
-              </h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-headline font-bold text-[14px] text-white flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[#c3f400] text-[18px]">
+                    account_tree
+                  </span>
+                  Cuadro del Torneo y Reajuste de Llaves
+                </h4>
+                {onGenerateBracket && (
+                  <button
+                    onClick={() => onGenerateBracket(selectedTournament.id)}
+                    className="bg-[#c3f400] text-[#161e00] text-[11px] font-bold px-3 py-1.5 rounded-lg"
+                  >
+                    Generar Grupos
+                  </button>
+                )}
+              </div>
 
               <div className="flex flex-col gap-2.5">
                 {matches.filter((m) => m.tournamentId === selectedTournament.id).length === 0 ? (
@@ -475,6 +512,29 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="text-[#c4c9ac] block mb-1">Fecha inicio</label>
+                  <input
+                    type="date"
+                    required
+                    value={newTourStartDate}
+                    onChange={(e) => setNewTourStartDate(e.target.value)}
+                    className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="text-[#c4c9ac] block mb-1">Fecha fin</label>
+                  <input
+                    type="date"
+                    required
+                    value={newTourEndDate}
+                    onChange={(e) => setNewTourEndDate(e.target.value)}
+                    className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="text-[#c4c9ac] block mb-1">Categoría</label>
                   <select
                     value={newTourCat}
@@ -510,6 +570,95 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                   onChange={(e) => setNewTourLocation(e.target.value)}
                   className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
                 />
+              </div>
+
+              <div>
+                <label className="text-[#c4c9ac] block mb-1">Formato</label>
+                <select
+                  value={newTourFormat}
+                  onChange={(e: any) => setNewTourFormat(e.target.value)}
+                  className="w-full bg-[#111317] border border-[#333539] text-white p-2.5 rounded-lg"
+                >
+                  <option value="Eliminación directa">Eliminación directa</option>
+                  <option value="Fase de grupos">Fase de grupos</option>
+                  <option value="Todos contra todos">Todos contra todos</option>
+                  <option value="Grupos + eliminación directa">Grupos + eliminación directa</option>
+                </select>
+              </div>
+
+              <div className="bg-[#0c0e12] p-3 rounded-xl border border-[#333539]">
+                <span className="text-[#c3f400] font-bold block mb-2 text-[11px] uppercase">Reglas del torneo</span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="text-[#c4c9ac] block mb-0.5">Sets a ganar</label>
+                    <select
+                      value={newTourSetsToWin}
+                      onChange={(e) => setNewTourSetsToWin(Number(e.target.value))}
+                      className="w-full bg-[#111317] border border-[#333539] text-white p-2 rounded"
+                    >
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[#c4c9ac] block mb-0.5">Punto de oro</label>
+                    <select
+                      value={newTourGoldenPoint ? '1' : '0'}
+                      onChange={(e) => setNewTourGoldenPoint(e.target.value === '1')}
+                      className="w-full bg-[#111317] border border-[#333539] text-white p-2 rounded"
+                    >
+                      <option value="1">Activado</option>
+                      <option value="0">Desactivado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[#c4c9ac] block mb-0.5">Tie-break en</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={13}
+                      value={newTourTieBreakAt}
+                      onChange={(e) => setNewTourTieBreakAt(Number(e.target.value))}
+                      className="w-full bg-[#111317] border border-[#333539] text-white p-2 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[#c4c9ac] block mb-0.5">Tie-break set final</label>
+                    <select
+                      value={newTourFinalSetTieBreak ? '1' : '0'}
+                      onChange={(e) => setNewTourFinalSetTieBreak(e.target.value === '1')}
+                      className="w-full bg-[#111317] border border-[#333539] text-white p-2 rounded"
+                    >
+                      <option value="1">Activado</option>
+                      <option value="0">Desactivado</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className="text-[#c4c9ac] block mb-1 text-[11px]">Distribución de puntos</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <label className="text-[#8e9379] block mb-0.5">Campeón</label>
+                      <input type="number" value={newTourPointsChampion} onChange={(e) => setNewTourPointsChampion(Number(e.target.value))} className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded" />
+                    </div>
+                    <div>
+                      <label className="text-[#8e9379] block mb-0.5">Finalista</label>
+                      <input type="number" value={newTourPointsRunnerUp} onChange={(e) => setNewTourPointsRunnerUp(Number(e.target.value))} className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded" />
+                    </div>
+                    <div>
+                      <label className="text-[#8e9379] block mb-0.5">Semifinal</label>
+                      <input type="number" value={newTourPointsSemiFinals} onChange={(e) => setNewTourPointsSemiFinals(Number(e.target.value))} className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded" />
+                    </div>
+                    <div>
+                      <label className="text-[#8e9379] block mb-0.5">Cuartos</label>
+                      <input type="number" value={newTourPointsQuarterFinals} onChange={(e) => setNewTourPointsQuarterFinals(Number(e.target.value))} className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[#8e9379] block mb-0.5">Fase de grupos</label>
+                      <input type="number" value={newTourPointsGroupStage} onChange={(e) => setNewTourPointsGroupStage(Number(e.target.value))} className="w-full bg-[#111317] border border-[#333539] text-white p-1.5 rounded" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

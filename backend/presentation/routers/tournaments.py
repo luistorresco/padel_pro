@@ -11,6 +11,7 @@ from presentation.deps_module import (
     update_tournament_uc,
     delete_tournament_uc,
     register_for_tournament_uc,
+    generate_bracket_uc,
     require_admin,
 )
 
@@ -91,3 +92,13 @@ def register_user_for_tournament(tournament_id: str, body: dict, payload: dict =
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@tournaments_router.post("/{tournament_id}/generate-bracket")
+def generate_bracket(tournament_id: str, payload: dict = Depends(require_admin)):
+    try:
+        return generate_bracket_uc.execute(tournament_id)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))

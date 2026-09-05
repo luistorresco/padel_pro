@@ -85,6 +85,10 @@ export const api = {
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ user_id: userId }),
   }).then(handleResponse),
+  generateBracket: (tournamentId: string) => fetch(`${API_BASE_NORMALIZED}/api/tournaments/${tournamentId}/generate-bracket`, {
+    method: 'POST',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+  }).then(handleResponse),
 
   getCourts: () => fetch(`${API_BASE_NORMALIZED}/api/courts`, { headers: mergeHeaders() }).then(handleResponse),
 
@@ -104,6 +108,11 @@ export const api = {
     method: 'PUT',
     headers: mergeHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ court_id: courtId, court_name: courtName }),
+  }).then(handleResponse),
+  updateMatchDateTime: (matchId: string, dateTime: string) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}/datetime`, {
+    method: 'PUT',
+    headers: mergeHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ date_time: dateTime }),
   }).then(handleResponse),
   finishMatch: (matchId: string, body: Record<string, unknown>) => fetch(`${API_BASE_NORMALIZED}/api/matches/${matchId}/finish`, {
     method: 'POST',

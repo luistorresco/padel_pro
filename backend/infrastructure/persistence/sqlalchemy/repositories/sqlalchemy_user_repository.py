@@ -166,14 +166,20 @@ class SQLAlchemyUserRepository(IUserRepository):
         with self.engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO users (id, name, surname, username, email, avatar, account_type, status,
-                    level, position, dominant_hand, points, invited_by, invitation_code, converted_at, deleted_at)
+                    level, position, dominant_hand, points, invited_by, invitation_code, converted_at, deleted_at,
+                    matches_played, matches_won, matches_lost, sets_won, sets_lost, games_won, games_lost)
                 VALUES (:id, :name, :surname, :username, :email, :avatar, :account_type, :status,
-                    :level, :position, :dominant_hand, :points, :invited_by, :invitation_code, :converted_at, :deleted_at)
+                    :level, :position, :dominant_hand, :points, :invited_by, :invitation_code, :converted_at, :deleted_at,
+                    :matches_played, :matches_won, :matches_lost, :sets_won, :sets_lost, :games_won, :games_lost)
                 ON DUPLICATE KEY UPDATE
                     name = VALUES(name), surname = VALUES(surname), username = VALUES(username),
                     email = VALUES(email), avatar = VALUES(avatar), level = VALUES(level),
                     position = VALUES(position), dominant_hand = VALUES(dominant_hand),
-                    points = VALUES(points), deleted_at = VALUES(deleted_at)
+                    points = VALUES(points), deleted_at = VALUES(deleted_at),
+                    matches_played = VALUES(matches_played), matches_won = VALUES(matches_won),
+                    matches_lost = VALUES(matches_lost), sets_won = VALUES(sets_won),
+                    sets_lost = VALUES(sets_lost), games_won = VALUES(games_won),
+                    games_lost = VALUES(games_lost)
             """), {
                 "id": user.id, "name": user.name, "surname": user.surname,
                 "username": user.username, "email": user.email, "avatar": user.avatar,
@@ -182,6 +188,13 @@ class SQLAlchemyUserRepository(IUserRepository):
                 "dominant_hand": user.dominant_hand, "points": user.points,
                 "invited_by": user.invited_by, "invitation_code": user.invitation_code,
                 "converted_at": user.converted_at, "deleted_at": user.deleted_at,
+                "matches_played": getattr(user, 'matches_played', 0),
+                "matches_won": getattr(user, 'matches_won', 0),
+                "matches_lost": getattr(user, 'matches_lost', 0),
+                "sets_won": getattr(user, 'sets_won', 0),
+                "sets_lost": getattr(user, 'sets_lost', 0),
+                "games_won": getattr(user, 'games_won', 0),
+                "games_lost": getattr(user, 'games_lost', 0),
             })
         return user
 
@@ -234,4 +247,11 @@ class SQLAlchemyUserRepository(IUserRepository):
             deleted_at=row.get("deleted_at"),
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
+            matches_played=row.get("matches_played", 0),
+            matches_won=row.get("matches_won", 0),
+            matches_lost=row.get("matches_lost", 0),
+            sets_won=row.get("sets_won", 0),
+            sets_lost=row.get("sets_lost", 0),
+            games_won=row.get("games_won", 0),
+            games_lost=row.get("games_lost", 0),
         )

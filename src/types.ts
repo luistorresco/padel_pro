@@ -74,6 +74,13 @@ export interface User {
   convertedAt?: string;
   accountType?: 'USER' | 'GUEST';
   invitationCode?: string;
+  matchesPlayed?: number;
+  matchesWon?: number;
+  matchesLost?: number;
+  setsWon?: number;
+  setsLost?: number;
+  gamesWon?: number;
+  gamesLost?: number;
 }
 
 export interface Pair {

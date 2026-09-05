@@ -158,11 +158,27 @@ export default function App() {
         if (users && users.length > 0) {
           const normalizedUsers = users.map((u: any) => ({
             ...u,
-            stats: u.stats && typeof u.stats === 'object' ? u.stats : EMPTY_STATS,
+            stats: u.stats && typeof u.stats === 'object' && Object.keys(u.stats).length > 0 ? u.stats : {
+              ...EMPTY_STATS,
+              matchesPlayed: u.matches_played || 0,
+              matchesWon: u.matches_won || 0,
+              matchesLost: u.matches_lost || 0,
+              setsWon: u.sets_won || 0,
+              setsLost: u.sets_lost || 0,
+              gamesWon: u.games_won || 0,
+              gamesLost: u.games_lost || 0,
+            },
             avatar: u.avatar || '',
             level: u.level || 'Intermedio',
             position: u.position || 'Drive (Derecha)',
             dominantHand: u.dominantHand || 'Derecha',
+            matchesPlayed: u.matches_played || 0,
+            matchesWon: u.matches_won || 0,
+            matchesLost: u.matches_lost || 0,
+            setsWon: u.sets_won || 0,
+            setsLost: u.sets_lost || 0,
+            gamesWon: u.games_won || 0,
+            gamesLost: u.games_lost || 0,
           }));
           setPlayers(normalizedUsers as User[]);
           if (!currentUser) {
@@ -171,7 +187,16 @@ export default function App() {
               const typedFallback = fallbackUser as User;
               setUser({
                 ...typedFallback,
-                stats: typedFallback.stats && typeof typedFallback.stats === 'object' ? typedFallback.stats : EMPTY_STATS,
+                stats: typedFallback.stats && typeof typedFallback.stats === 'object' && Object.keys(typedFallback.stats).length > 0 ? typedFallback.stats : {
+                  ...EMPTY_STATS,
+                  matchesPlayed: typedFallback.matchesPlayed || 0,
+                  matchesWon: typedFallback.matchesWon || 0,
+                  matchesLost: typedFallback.matchesLost || 0,
+                  setsWon: typedFallback.setsWon || 0,
+                  setsLost: typedFallback.setsLost || 0,
+                  gamesWon: typedFallback.gamesWon || 0,
+                  gamesLost: typedFallback.gamesLost || 0,
+                },
                 avatar: typedFallback.avatar || '',
                 level: typedFallback.level || 'Intermedio',
                 position: typedFallback.position || 'Drive (Derecha)',
@@ -548,6 +573,23 @@ export default function App() {
     await api.registerPairForTournament(tournamentId, pairId, courtId, dateTime);
   };
 
+  const handleGenerateBracket = async (tournamentId: string) => {
+    try {
+      await api.generateBracket(tournamentId);
+      const updatedMatches = await api.getMatches();
+      if (updatedMatches) {
+        setMatches((updatedMatches as Match[]).map((m) => ({
+          ...m,
+          currentGame: m.currentGame || createInitialGameScore('A'),
+        })));
+      }
+      alert('Grupos generados correctamente');
+    } catch (error) {
+      console.error('[App] Failed to generate bracket.', error);
+      alert('No se pudo generar el cuadro de grupos.');
+    }
+  };
+
   const handleCreatePair = async (newPair: Pair) => {
     setPairs((prev) => [newPair, ...prev]);
     try {
@@ -900,6 +942,7 @@ export default function App() {
                     setSelectedMatchId(id);
                     setActiveTab('matches');
                   }}
+                  onGenerateBracket={handleGenerateBracket}
                 />
               )}
 

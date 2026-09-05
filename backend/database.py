@@ -105,6 +105,13 @@ def create_schema(conn):
             position VARCHAR(50) NULL,
             dominant_hand ENUM('RIGHT','LEFT','BOTH') NULL,
             points INT NOT NULL DEFAULT 0,
+            matches_played INT NOT NULL DEFAULT 0,
+            matches_won INT NOT NULL DEFAULT 0,
+            matches_lost INT NOT NULL DEFAULT 0,
+            sets_won INT NOT NULL DEFAULT 0,
+            sets_lost INT NOT NULL DEFAULT 0,
+            games_won INT NOT NULL DEFAULT 0,
+            games_lost INT NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             deleted_at DATETIME NULL,
@@ -117,6 +124,49 @@ def create_schema(conn):
             INDEX idx_users_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """))
+
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_played INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_won INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS matches_lost INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS sets_won INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS sets_lost INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS games_won INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS games_lost INT NOT NULL DEFAULT 0
+        """))
+    except Exception:
+        pass
 
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS users_auth (

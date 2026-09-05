@@ -1,7 +1,10 @@
 """Matches use cases."""
 
 import json
+import random
+from datetime import datetime
 from domain.exceptions import EntityNotFound
+from domain.entities.pair import Pair
 
 
 def _normalize_set(s: dict) -> dict:
@@ -168,9 +171,28 @@ class UpdateMatchCourtUseCase:
         return {"status": "updated"}
 
 
-class FinishMatchUseCase:
+class UpdateMatchDateTimeUseCase:
     def __init__(self, match_repo):
         self.match_repo = match_repo
+
+    def execute(self, match_id, body):
+        m = self.match_repo.find_by_id(match_id)
+        if not m:
+            raise EntityNotFound("Match not found")
+        date_time = body.get("dateTime") or body.get("date_time")
+        if not date_time:
+            raise ValueError("date_time is required")
+        with self.match_repo.engine.begin() as conn:
+            conn.execute(text("UPDATE matches SET date_time = :dt WHERE id = :id"), {"dt": date_time, "id": match_id})
+        return {"status": "updated", "date_time": date_time}
+
+
+class FinishMatchUseCase:
+    def __init__(self, match_repo, user_repo, user_points_repo, pair_repo):
+        self.match_repo = match_repo
+        self.user_repo = user_repo
+        self.user_points_repo = user_points_repo
+        self.pair_repo = pair_repo
 
     def execute(self, match_id, body):
         m = self.match_repo.find_by_id(match_id)
@@ -179,7 +201,214 @@ class FinishMatchUseCase:
         winner_id = body.get("winnerPairId") or body.get("winner_pair_id")
         winner_team = body.get("winnerTeam") or body.get("winner_team")
         self.match_repo.finish(match_id, winner_id, winner_team)
+
+        if m.pair_a_id and m.pair_b_id and winner_id:
+            self._award_stats_and_points(m, winner_id)
+
         return {"status": "finished"}
+
+    def _award_stats_and_points(self, match, winner_pair_id):
+        try:
+            winner_pair = self.user_repo.find_pair_with_players(winner_pair_id)
+            if not winner_pair:
+                return
+            winner_player_ids = [winner_pair.get("player1_id"), winner_pair.get("player2_id")]
+
+            loser_pair_id = match.pair_b_id if match.pair_a_id == winner_pair_id else match.pair_a_id
+            loser_pair = None
+            loser_player_ids = []
+            if loser_pair_id:
+                loser_pair = self.user_repo.find_pair_with_players(loser_pair_id)
+                if loser_pair:
+                    loser_player_ids = [loser_pair.get("player1_id"), loser_pair.get("player2_id")]
+
+            tournament = None
+            if match.tournament_id:
+                try:
+                    tournament = self.user_repo.find_tournament_rules(match.tournament_id)
+                except Exception:
+                    pass
+
+            points_map = {
+                "champion": 1000,
+                "runner_up": 600,
+                "semi_finals": 360,
+                "quarter_finals": 180,
+                "group_stage": 90,
+                "match_win": 150,
+            }
+            if tournament and isinstance(tournament, dict):
+                rules = tournament.get("rules") or {}
+                if isinstance(rules, str):
+                    try:
+                        rules = json.loads(rules)
+                    except Exception:
+                        rules = {}
+                points_map.update(rules.get("pointsDistribution", {}))
+
+            round_name = match.round_name or ""
+            reason = "match_win"
+            points = points_map.get("match_win", 150)
+            if "FINAL" in round_name.upper() or "GRAN FINAL" in round_name.upper():
+                reason = "champion"
+                points = points_map.get("champion", 1000)
+            elif "SEMIFINAL" in round_name.upper():
+                reason = "semi_finals"
+                points = points_map.get("semi_finals", 360)
+            elif "CUARTOS" in round_name.upper() or "QUARTERFINAL" in round_name.upper():
+                reason = "quarter_finals"
+                points = points_map.get("quarter_finals", 180)
+            elif "GRUPO" in round_name.upper() or "GROUP" in round_name.upper():
+                reason = "group_stage"
+                points = points_map.get("group_stage", 90)
+
+            sets = match.sets or []
+            winner_sets = sum(1 for s in sets if s.get("winner") == ('A' if match.pair_a_id == winner_pair_id else 'B'))
+            loser_sets = sum(1 for s in sets if s.get("winner") == ('A' if match.pair_a_id == loser_pair_id else 'B'))
+            if not winner_sets and not loser_sets and sets:
+                winner_sets = len([s for s in sets if s.get("teamAGames", 0) > s.get("teamBGames", 0)])
+                loser_sets = len([s for s in sets if s.get("teamBGames", 0) > s.get("teamAGames", 0)])
+
+            winner_games = sum(s.get("teamAGames" if match.pair_a_id == winner_pair_id else "teamBGames", 0) for s in sets)
+            loser_games = sum(s.get("teamAGames" if match.pair_a_id == loser_pair_id else "teamBGames", 0) for s in sets)
+
+            for pid in winner_player_ids:
+                if not pid:
+                    continue
+                try:
+                    self.user_points_repo.save({
+                        "user_id": pid,
+                        "match_id": match.id,
+                        "tournament_id": match.tournament_id,
+                        "points": points,
+                        "reason": reason,
+                        "created_at": datetime.utcnow().isoformat(),
+                    })
+                except Exception:
+                    pass
+
+                try:
+                    current = self.user_repo.find_by_id(pid)
+                    if current:
+                        updated = User(
+                            user_id=pid,
+                            name=current.name,
+                            surname=current.surname,
+                            username=current.username,
+                            email=current.email,
+                            avatar=current.avatar,
+                            account_type=current.account_type,
+                            status=current.status,
+                            level=current.level,
+                            position=current.position,
+                            dominant_hand=current.dominant_hand,
+                            points=(current.points or 0) + points,
+                            invited_by=current.invited_by,
+                            invitation_code=current.invitation_code,
+                            converted_at=current.converted_at,
+                            deleted_at=current.deleted_at,
+                            created_at=current.created_at,
+                            updated_at=current.updated_at,
+                            matches_played=(getattr(current, 'matches_played', 0) or 0) + 1,
+                            matches_won=(getattr(current, 'matches_won', 0) or 0) + 1,
+                            matches_lost=getattr(current, 'matches_lost', 0) or 0,
+                            sets_won=(getattr(current, 'sets_won', 0) or 0) + winner_sets,
+                            sets_lost=(getattr(current, 'sets_lost', 0) or 0) + loser_sets,
+                            games_won=(getattr(current, 'games_won', 0) or 0) + winner_games,
+                            games_lost=(getattr(current, 'games_lost', 0) or 0) + loser_games,
+                        )
+                        self.user_repo.save(updated)
+                except Exception:
+                    pass
+
+            for pid in loser_player_ids:
+                if not pid:
+                    continue
+                try:
+                    current = self.user_repo.find_by_id(pid)
+                    if current:
+                        updated = User(
+                            user_id=pid,
+                            name=current.name,
+                            surname=current.surname,
+                            username=current.username,
+                            email=current.email,
+                            avatar=current.avatar,
+                            account_type=current.account_type,
+                            status=current.status,
+                            level=current.level,
+                            position=current.position,
+                            dominant_hand=current.dominant_hand,
+                            points=current.points or 0,
+                            invited_by=current.invited_by,
+                            invitation_code=current.invitation_code,
+                            converted_at=current.converted_at,
+                            deleted_at=current.deleted_at,
+                            created_at=current.created_at,
+                            updated_at=current.updated_at,
+                            matches_played=(getattr(current, 'matches_played', 0) or 0) + 1,
+                            matches_won=getattr(current, 'matches_won', 0) or 0,
+                            matches_lost=(getattr(current, 'matches_lost', 0) or 0) + 1,
+                            sets_won=(getattr(current, 'sets_won', 0) or 0) + loser_sets,
+                            sets_lost=(getattr(current, 'sets_lost', 0) or 0) + winner_sets,
+                            games_won=(getattr(current, 'games_won', 0) or 0) + loser_games,
+                            games_lost=(getattr(current, 'games_lost', 0) or 0) + winner_games,
+                        )
+                        self.user_repo.save(updated)
+                except Exception:
+                    pass
+
+            if match.tournament_id and winner_pair and loser_pair:
+                try:
+                    if "FINAL" in round_name.upper() or "GRAN FINAL" in round_name.upper():
+                        self.pair_repo.save(Pair(
+                            pair_id=winner_pair_id,
+                            name=winner_pair.get("name", "Pareja"),
+                            player1_id=winner_pair.get("player1_id"),
+                            player2_id=winner_pair.get("player2_id"),
+                            created_by=winner_pair.get("created_by", ""),
+                            status="ACTIVE",
+                            tournaments_disputed=(winner_pair.get("tournaments_disputed") or 0) + 1,
+                            titles_won=(winner_pair.get("titles_won") or 0) + 1,
+                        ))
+                        if loser_pair:
+                            self.pair_repo.save(Pair(
+                                pair_id=loser_pair_id,
+                                name=loser_pair.get("name", "Pareja"),
+                                player1_id=loser_pair.get("player1_id"),
+                                player2_id=loser_pair.get("player2_id"),
+                                created_by=loser_pair.get("created_by", ""),
+                                status="ACTIVE",
+                                tournaments_disputed=(loser_pair.get("tournaments_disputed") or 0) + 1,
+                                titles_won=loser_pair.get("titles_won") or 0,
+                            ))
+                    else:
+                        if winner_pair.get("tournaments_disputed") is None or loser_pair.get("tournaments_disputed") is None:
+                            return
+                        self.pair_repo.save(Pair(
+                            pair_id=winner_pair_id,
+                            name=winner_pair.get("name", "Pareja"),
+                            player1_id=winner_pair.get("player1_id"),
+                            player2_id=winner_pair.get("player2_id"),
+                            created_by=winner_pair.get("created_by", ""),
+                            status="ACTIVE",
+                            tournaments_disputed=winner_pair.get("tournaments_disputed", 0) + 1,
+                            titles_won=winner_pair.get("titles_won", 0),
+                        ))
+                        self.pair_repo.save(Pair(
+                            pair_id=loser_pair_id,
+                            name=loser_pair.get("name", "Pareja"),
+                            player1_id=loser_pair.get("player1_id"),
+                            player2_id=loser_pair.get("player2_id"),
+                            created_by=loser_pair.get("created_by", ""),
+                            status="ACTIVE",
+                            tournaments_disputed=loser_pair.get("tournaments_disputed", 0) + 1,
+                            titles_won=loser_pair.get("titles_won", 0),
+                        ))
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 class CreateMatchEventUseCase:
@@ -215,5 +444,71 @@ class DeleteMatchUseCase:
             raise EntityNotFound("Match not found")
         self.match_repo.delete(match_id)
         return {"message": "Match deleted"}
+
+
+class GenerateBracketUseCase:
+    def __init__(self, tournament_repo, match_repo, pair_repo):
+        self.tournament_repo = tournament_repo
+        self.match_repo = match_repo
+        self.pair_repo = pair_repo
+
+    def execute(self, tournament_id):
+        t = self.tournament_repo.find_by_id(tournament_id)
+        if not t:
+            raise EntityNotFound("Tournament not found")
+
+        full = self.tournament_repo.find_full(tournament_id)
+        if not full:
+            raise EntityNotFound("Tournament data not found")
+
+        pairs = full.get("pairs", [])
+        if len(pairs) < 2:
+            raise ValueError("At least 2 pairs are required to generate a bracket")
+
+        existing_matches = self.match_repo.find_by_tournament(tournament_id)
+        if existing_matches:
+            for match in existing_matches:
+                self.match_repo.delete(match.id)
+
+        random.shuffle(pairs)
+        pair_ids = [p.get("pair_id") or p.get("id") for p in pairs if p.get("pair_id") or p.get("id")]
+        pair_names = {p.get("pair_id") or p.get("id"): p.get("name", "Pareja") for p in pairs}
+
+        rules = t.rules or {}
+        if isinstance(rules, str):
+            try:
+                rules = json.loads(rules)
+            except Exception:
+                rules = {}
+        golden_point = rules.get("goldenPoint") or rules.get("golden_point") or False
+        sets_to_win = rules.get("setsToWin") or rules.get("sets_to_win") or 2
+
+        matches = []
+        n = len(pair_ids)
+        if n >= 2:
+            for i in range(0, n, 2):
+                if i + 1 < n:
+                    match_id = f"match_{tournament_id}_round_{i // 2}"
+                    match = type('Match', (), {})()
+                    match.id = match_id
+                    match.tournament_id = tournament_id
+                    match.pair_a_id = pair_ids[i]
+                    match.pair_b_id = pair_ids[i + 1]
+                    match.round_name = "Grupos"
+                    match.date_time = None
+                    match.status = "SCHEDULED"
+                    match.court_id = None
+                    match.sets = []
+                    match.current_set_index = 0
+                    match.winner_pair_id = None
+                    match.winner_team = None
+                    match.golden_point = golden_point
+                    match.sets_to_win = sets_to_win
+                    matches.append(match)
+
+        for match in matches:
+            self.match_repo.save(match)
+
+        return {"generated": len(matches), "matches": [m.id for m in matches]}
 
 
